@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controlo da Câmara Web</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Fonte Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Efeito de brilho suave e transição de vídeo */
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .mirror-video {
+            transform: scaleX(-1);
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between p-4 sm:p-6 lg:p-8 selection:bg-indigo-500 selection:text-white">
+
+    <!-- Header / Título -->
+    <header class="max-w-4xl mx-auto w-full text-center mb-6 sm:mb-8">
+        <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-semibold uppercase tracking-wider mb-3">
+            <i data-lucide="video" class="w-3.5 h-3.5"></i>
+            <span>Painel de Controlo</span>
+        </div>
+        <h1 class="text-3xl sm:text-4xl font-bold tracking-tight text-white mb-2">
+            Câmara em Tempo Real
+        </h1>
+        <p class="text-slate-400 text-sm sm:text-base max-w-lg mx-auto">
+            Ativa e desativa a câmara do teu dispositivo, alterna entre câmaras e captura snapshots instantâneos.
+        </p>
+    </header>
+
+    <!-- Content Principal -->
+    <main class="max-w-4xl mx-auto w-full flex-grow flex flex-col items-center">
+        
+        <!-- Frame Principal da Câmara -->
+        <div class="glass-panel w-full rounded-3xl p-4 sm:p-6 shadow-2xl relative overflow-hidden mb-6 border border-slate-800">
+            
+            <!-- Contentor de Vídeo e Sobreposições -->
+            <div class="relative w-full aspect-video bg-slate-900 rounded-2xl overflow-hidden border border-slate-800 shadow-inner flex items-center justify-center">
+                
+                <!-- Elemento de Vídeo -->
+                <video id="cameraStream" autoplay playsinline class="w-full h-full object-cover hidden transition-all duration-300"></video>
+                
+                <!-- Canvas Oculto para Snapshot -->
+                <canvas id="snapshotCanvas" class="hidden"></canvas>
+
+                <!-- 1. Estado: Câmara Desligada (Padrão) -->
+                <div id="stateOff" class="flex flex-col items-center justify-center text-center p-6 space-y-3 z-10">
+                    <div class="w-16 h-16 rounded-2xl bg-slate-800/80 border border-slate-700/50 flex items-center justify-center text-slate-400 shadow-lg">
+                        <i data-lucide="camera-off" class="w-8 h-8"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold text-slate-200">Câmara Desligada</h3>
+                        <p class="text-xs sm:text-sm text-slate-400 mt-1 max-w-xs">Clica no botão "Ligar Câmara" abaixo para iniciar a transmissão de vídeo.</p>
+                    </div>
+                </div>
+
+                <!-- 2. Estado: A Ligar (Loading) -->
+                <div id="stateLoading" class="hidden flex flex-col items-center justify-center text-center p-6 space-y-3 z-10">
+                    <div class="w-16 h-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+                        <i data-lucide="loader-2" class="w-8 h-8 animate-spin"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold text-indigo-300">A Ligar a Câmara...</h3>
+                        <p class="text-xs sm:text-sm text-slate-400 mt-1">Por favor, concede acesso se for solicitado pelo teu navegador.</p>
+                    </div>
+                </div>
+
+                <!-- 3. Estado: Erro / Sem Permissão -->
+                <div id="stateError" class="hidden flex flex-col items-center justify-center text-center p-6 space-y-3 z-10">
+                    <div class="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 shadow-lg">
+                        <i data-lucide="alert-circle" class="w-8 h-8"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold text-rose-400" id="errorTitle">Erro de Acesso</h3>
+                        <p class="text-xs sm:text-sm text-slate-400 mt-1 max-w-xs" id="errorMessage">Não foi possível aceder à câmara.</p>
+                    </div>
+                </div>
+
+                <!-- Indicador Flutuante de Estado em Tempo Real (Top-Left) -->
+                <div id="liveBadge" class="hidden absolute top-4 left-4 z-20 items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900/80 backdrop-blur-md border border-slate-700/60 text-xs font-medium text-emerald-400">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span>Câmara Ativa</span>
+                </div>
+
+                <!-- Informação da Resolução/Dispositivo (Top-Right) -->
+                <div id="infoBadge" class="hidden absolute top-4 right-4 z-20 items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900/80 backdrop-blur-md border border-slate-700/60 text-xs font-medium text-slate-300">
+                    <i data-lucide="sliders" class="w-3.5 h-3.5 text-indigo-400"></i>
+                    <span id="cameraResolution">-- x --</span>
+                </div>
+            </div>
+
+            <!-- Painel de Controlos -->
+            <div class="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-800/80">
+                
+                <!-- Botão Principal de Alternância (Toggle Ligar/Desligar) -->
+                <button id="toggleBtn" onclick="toggleCamera()" class="w-full sm:w-auto px-6 py-3.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2.5 transition-all duration-200 shadow-lg bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/25 active:scale-95">
+                    <i data-lucide="power" class="w-5 h-5"></i>
+                    <span id="toggleBtnText">Ligar Câmara</span>
+                </button>
+
+                <!-- Grupo de Controlos Secundários -->
+                <div class="flex items-center justify-center gap-3 w-full sm:w-auto flex-wrap">
+                    
+                    <!-- Seletor de Câmaras (Se existirem múltiplas) -->
+                    <div class="relative flex-1 sm:flex-none min-w-[160px]">
+                        <select id="cameraSelect" onchange="changeCamera()" class="w-full appearance-none bg-slate-800 hover:bg-slate-700/80 border border-slate-700 text-slate-200 text-xs sm:text-sm rounded-xl px-4 py-3 pr-10 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                            <option value="">A procurar câmaras...</option>
+                        </select>
+                        <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                    </div>
+
+                    <!-- Botão Alternar Frontal/Traseira Rápido (Mobile) -->
+                    <button id="flipBtn" onclick="flipCamera()" disabled title="Alternar Câmara" class="p-3 rounded-xl bg-slate-800 hover:bg-slate-700/80 border border-slate-700 text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95">
+                        <i data-lucide="switch-camera" class="w-5 h-5"></i>
+                    </button>
+
+                    <!-- Botão para Tirar Foto -->
+                    <button id="snapshotBtn" onclick="takeSnapshot()" disabled class="px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-medium text-xs sm:text-sm flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95">
+                        <i data-lucide="aperture" class="w-4 h-4 text-indigo-400"></i>
+                        <span>Tirar Foto</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Galeria / Pré-visualização da Foto Capturada (Aparece ao capturar) -->
+        <div id="snapshotContainer" class="hidden glass-panel w-full rounded-3xl p-5 border border-slate-800 shadow-xl transition-all duration-300">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-2 text-slate-200 font-semibold text-sm">
+                    <i data-lucide="image" class="w-4 h-4 text-indigo-400"></i>
+                    <span>Fotografia Capturada</span>
+                </div>
+                <button onclick="closeSnapshot()" class="text-slate-400 hover:text-slate-200 text-xs flex items-center gap-1 p-1 hover:bg-slate-800 rounded-lg transition-colors">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                    <span>Fechar</span>
+                </button>
+            </div>
+
+            <div class="flex flex-col md:flex-row items-center gap-6">
+                <!-- Imagem Capturada -->
+                <div class="relative group w-full md:w-1/2 rounded-2xl overflow-hidden border border-slate-700 bg-slate-900 shadow-md">
+                    <img id="snapshotImage" src="" alt="Snapshot" class="w-full h-auto object-cover">
+                </div>
+
+                <!-- Detalhes & Ações -->
+                <div class="w-full md:w-1/2 flex flex-col justify-between space-y-4">
+                    <div class="space-y-1">
+                        <p class="text-xs text-slate-400">Data de Captura</p>
+                        <p id="snapshotTimestamp" class="text-sm font-medium text-slate-200">--</p>
+                    </div>
+                    <div class="space-y-1">
+                        <p class="text-xs text-slate-400">Dimensões da Imagem</p>
+                        <p id="snapshotDimensions" class="text-sm font-medium text-slate-200">--</p>
+                    </div>
+
+                    <!-- Botão de Download -->
+                    <a id="downloadBtn" download="foto-camara.png" href="#" class="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 transition-all active:scale-95">
+                        <i data-lucide="download" class="w-4 h-4"></i>
+                        <span>Descarregar Foto</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="max-w-4xl mx-auto w-full text-center text-xs text-slate-500 py-4 mt-6">
+        <p>Desenvolvido com HTML5 MediaDevices API, Tailwind CSS e Lucide Icons.</p>
+    </footer>
+
+    <!-- Notificação Toast (Substitui alert) -->
+    <div id="toast" class="fixed bottom-6 right-6 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+        <div class="glass-panel border border-slate-700 text-slate-200 text-xs sm:text-sm px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3">
+            <i id="toastIcon" data-lucide="info" class="w-4 h-4 text-indigo-400"></i>
+            <span id="toastMessage">Notificação</span>
+        </div>
+    </div>
+
+    <!-- JavaScript Lógica Principal -->
+    <script>
+        // Referências aos elementos DOM
+        const video = document.getElementById('cameraStream');
+        const canvas = document.getElementById('snapshotCanvas');
+        const toggleBtn = document.getElementById('toggleBtn');
+        const toggleBtnText = document.getElementById('toggleBtnText');
+        const cameraSelect = document.getElementById('cameraSelect');
+        const flipBtn = document.getElementById('flipBtn');
+        const snapshotBtn = document.getElementById('snapshotBtn');
+        
+        // Elementos de Estado Visual
+        const stateOff = document.getElementById('stateOff');
+        const stateLoading = document.getElementById('stateLoading');
+        const stateError = document.getElementById('stateError');
+        const liveBadge = document.getElementById('liveBadge');
+        const infoBadge = document.getElementById('infoBadge');
+        const cameraResolution = document.getElementById('cameraResolution');
+        const errorTitle = document.getElementById('errorTitle');
+        const errorMessage = document.getElementById('errorMessage');
+
+        // Elementos de Snapshot
+        const snapshotContainer = document.getElementById('snapshotContainer');
+        const snapshotImage = document.getElementById('snapshotImage');
+        const snapshotTimestamp = document.getElementById('snapshotTimestamp');
+        const snapshotDimensions = document.getElementById('snapshotDimensions');
+        const downloadBtn = document.getElementById('downloadBtn');
+
+        // Variáveis de Estado Global
+        let currentStream = null;
+        let isCameraOn = false;
+        let videoDevices = [];
+        let currentFacingMode = 'user'; // 'user' (frontal) ou 'environment' (traseira)
+
+        // Inicialização
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            getCameras();
+        });
+
+        /**
+         * Enumera e preenche a lista de câmaras disponíveis
+         */
+        async function getCameras() {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+                showToast('API de MediaDevices não suportada neste navegador.', 'error');
+                return;
+            }
+
+            try {
+                // Solicitar permissão breve para listar com rótulos corretos
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                videoDevices = devices.filter(device => device.kind === 'videoinput');
+
+                cameraSelect.innerHTML = '';
+
+                if (videoDevices.length === 0) {
+                    const opt = document.createElement('option');
+                    opt.value = "";
+                    opt.textContent = "Nenhuma câmara detetada";
+                    cameraSelect.appendChild(opt);
+                    cameraSelect.disabled = true;
+                    return;
+                }
+
+                videoDevices.forEach((device, index) => {
+                    const option = document.createElement('option');
+                    option.value = device.deviceId;
+                    option.textContent = device.label || `Câmara ${index + 1}`;
+                    cameraSelect.appendChild(option);
+                });
+
+                cameraSelect.disabled = false;
+                
+                // Ativar botão de flip se houver mais de uma câmara
+                if (videoDevices.length > 1) {
+                    flipBtn.disabled = false;
+                }
+            } catch (err) {
+                console.warn('Erro ao listar dispositivos:', err);
+            }
+        }
+
+        /**
+         * Liga ou Desliga a câmara (Toggle Principal)
+         */
+        async function toggleCamera() {
+            if (isCameraOn) {
+                stopCamera();
+            } else {
+                await startCamera();
+            }
+        }
+
+        /**
+         * Inicia a transmissão de vídeo da câmara
+         */
+        async function startCamera() {
+            setUIState('loading');
+
+            const selectedDeviceId = cameraSelect.value;
+            
+            // Definição de restrições (constraints)
+            const constraints = {
+                video: {
+                    width: { ideal: 1920 },
+                    height: { ideal: 1080 }
+                },
+                audio: false
+            };
+
+            // Se um dispositivo específico for selecionado na dropdown
+            if (selectedDeviceId) {
+                constraints.video.deviceId = { exact: selectedDeviceId };
+            } else {
+                constraints.video.facingMode = currentFacingMode;
+            }
+
+            try {
+                // Obter MediaStream
+                currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = currentStream;
+
+                // Quando os dados de vídeo estiverem prontos
+                video.onloadedmetadata = () => {
+                    video.play();
+                    isCameraOn = true;
+                    
+                    // Aplicar efeito espelho para câmara frontal
+                    if (currentFacingMode === 'user' && (!selectedDeviceId || isFrontCameraLabel(selectedDeviceId))) {
+                        video.classList.add('mirror-video');
+                    } else {
+                        video.classList.remove('mirror-video');
+                    }
+
+                    // Atualizar UI
+                    setUIState('active');
+                    updateCameraResolution();
+                    
+                    // Atualizar rótulos das câmaras caso tenham vindo sem nome anteriormente
+                    getCameras();
+                    showToast('Câmara ligada com sucesso!', 'success');
+                };
+
+            } catch (err) {
+                console.error('Erro ao aceder à câmara:', err);
+                handleCameraError(err);
+            }
+        }
+
+        /**
+         * Para todos os tracks de vídeo e desliga a câmara
+         */
+        function stopCamera() {
+            if (currentStream) {
+                // Parar todos os tracks do stream
+                currentStream.getTracks().forEach(track => track.stop());
+                currentStream = null;
+            }
+
+            video.srcObject = null;
+            isCameraOn = false;
+
+            setUIState('off');
+            showToast('Câmara desligada.', 'info');
+        }
+
+        /**
+         * Alterna entre câmaras na dropdown
+         */
+        async function changeCamera() {
+            if (isCameraOn) {
+                // Se já estiver ligada, reinicia com o novo ID
+                stopCamera();
+                await startCamera();
+            }
+        }
+
+        /**
+         * Alterna rapidamente entre câmara frontal e traseira
+         */
+        async function flipCamera() {
+            if (videoDevices.length <= 1) return;
+
+            const currentIndex = cameraSelect.selectedIndex;
+            const nextIndex = (currentIndex + 1) % videoDevices.length;
+            cameraSelect.selectedIndex = nextIndex;
+
+            currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
+
+            if (isCameraOn) {
+                stopCamera();
+                await startCamera();
+            } else {
+                showToast(`Selecionada: ${cameraSelect.options[nextIndex].text}`, 'info');
+            }
+        }
+
+        /**
+         * Tira um snapshot do vídeo atual
+         */
+        function takeSnapshot() {
+            if (!isCameraOn || !video.videoWidth) return;
+
+            // Ajustar o canvas às dimensões reais do vídeo
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+
+            const ctx = canvas.getContext('2d');
+
+            // Se estiver espelhado, desenhar espelhado no canvas também
+            if (video.classList.contains('mirror-video')) {
+                ctx.translate(canvas.width, 0);
+                ctx.scale(-1, 1);
+            }
+
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // Gerar URL da Imagem
+            const dataUrl = canvas.toDataURL('image/png');
+            snapshotImage.src = dataUrl;
+            downloadBtn.href = dataUrl;
+
+            // Informações extras
+            const now = new Date();
+            snapshotTimestamp.textContent = now.toLocaleDateString('pt-PT') + ' às ' + now.toLocaleTimeString('pt-PT');
+            snapshotDimensions.textContent = `${canvas.width} x ${canvas.height} px`;
+
+            // Mostrar contentor de snapshot com animação suave
+            snapshotContainer.classList.remove('hidden');
+            snapshotContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+            showToast('Fotografia capturada!', 'success');
+        }
+
+        /**
+         * Fecha o painel de snapshot
+         */
+        function closeSnapshot() {
+            snapshotContainer.classList.add('hidden');
+        }
+
+        /**
+         * Atualiza os estados visuais da interface
+         */
+        function setUIState(state) {
+            // Reset de visibilidades
+            video.classList.add('hidden');
+            stateOff.classList.add('hidden');
+            stateLoading.classList.add('hidden');
+            stateError.classList.add('hidden');
+            liveBadge.classList.add('hidden');
+            liveBadge.classList.remove('flex');
+            infoBadge.classList.add('hidden');
+            infoBadge.classList.remove('flex');
+
+            switch (state) {
+                case 'off':
+                    stateOff.classList.remove('hidden');
+                    toggleBtn.className = "w-full sm:w-auto px-6 py-3.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2.5 transition-all duration-200 shadow-lg bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/25 active:scale-95";
+                    toggleBtnText.textContent = "Ligar Câmara";
+                    snapshotBtn.disabled = true;
+                    break;
+
+                case 'loading':
+                    stateLoading.classList.remove('hidden');
+                    toggleBtnText.textContent = "A Ligar...";
+                    toggleBtn.disabled = true;
+                    snapshotBtn.disabled = true;
+                    break;
+
+                case 'active':
+                    video.classList.remove('hidden');
+                    liveBadge.classList.remove('hidden');
+                    liveBadge.classList.add('flex');
+                    infoBadge.classList.remove('hidden');
+                    infoBadge.classList.add('flex');
+
+                    toggleBtn.disabled = false;
+                    toggleBtn.className = "w-full sm:w-auto px-6 py-3.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2.5 transition-all duration-200 shadow-lg bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/25 active:scale-95";
+                    toggleBtnText.textContent = "Desligar Câmara";
+                    snapshotBtn.disabled = false;
+                    break;
+
+                case 'error':
+                    stateError.classList.remove('hidden');
+                    toggleBtn.disabled = false;
+                    toggleBtn.className = "w-full sm:w-auto px-6 py-3.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2.5 transition-all duration-200 shadow-lg bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/25 active:scale-95";
+                    toggleBtnText.textContent = "Tentar Novamente";
+                    snapshotBtn.disabled = true;
+                    break;
+            }
+        }
+
+        /**
+         * Trata erros comuns da API de MediaDevices
+         */
+        function handleCameraError(err) {
+            let title = "Erro de Acesso";
+            let message = "Não foi possível ligar a câmara.";
+
+            if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                title = "Permissão Negada";
+                message = "Foi negado o acesso à câmara. Por favor, permite o acesso nas definições do teu navegador.";
+            } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+                title = "Câmara Não Encontrada";
+                message = "Nenhum dispositivo de vídeo foi detetado no teu sistema.";
+            } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+                title = "Câmara em Uso";
+                message = "A câmara já está a ser utilizada por outra aplicação ou separador.";
+            }
+
+            errorTitle.textContent = title;
+            errorMessage.textContent = message;
+            setUIState('error');
+            showToast(message, 'error');
+        }
+
+        /**
+         * Atualiza a indicação de resolução do vídeo
+         */
+        function updateCameraResolution() {
+            if (video.videoWidth && video.videoHeight) {
+                cameraResolution.textContent = `${video.videoWidth} x ${video.videoHeight}`;
+            }
+        }
+
+        /**
+         * Auxiliar para verificar se o rótulo da câmara indica que é frontal
+         */
+        function isFrontCameraLabel(deviceId) {
+            const dev = videoDevices.find(d => d.deviceId === deviceId);
+            if (!dev) return false;
+            const label = dev.label.toLowerCase();
+            return label.includes('front') || label.includes('frontal') || label.includes('user') || label.includes('selfie');
+        }
+
+        /**
+         * Notificação Toast Personalizada
+         */
+        function showToast(msg, type = 'info') {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toastMessage');
+            const toastIcon = document.getElementById('toastIcon');
+
+            toastMessage.textContent = msg;
+
+            if (type === 'success') {
+                toastIcon.setAttribute('data-lucide', 'check-circle');
+                toastIcon.className = "w-4 h-4 text-emerald-400";
+            } else if (type === 'error') {
+                toastIcon.setAttribute('data-lucide', 'alert-triangle');
+                toastIcon.className = "w-4 h-4 text-rose-400";
+            } else {
+                toastIcon.setAttribute('data-lucide', 'info');
+                toastIcon.className = "w-4 h-4 text-indigo-400";
+            }
+
+            lucide.createIcons();
+
+            // Animação de entrada
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            // Ocultar após 3.5 segundos
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3500);
+        }
+    </script>
+</body>
+</html>
