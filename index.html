@@ -3,1307 +3,881 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Câmara Pro, Efeitos & Jogo TikTok</title>
-    <!-- Tailwind CSS CDN -->
+    <title>Câmara Pro & AR Face Game</title>
+    
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- Fonte Inter -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <!-- MediaPipe Face Mesh & Camera Utils -->
+    
+    <!-- Google Fonts: Inter & Space Grotesk (Para o Jogo/Títulos) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+    
+    <!-- MediaPipe Face Mesh -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
     
     <style>
+        :root {
+            --glass-bg: rgba(17, 24, 39, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --accent: #6366f1; /* Indigo 500 */
+        }
+        
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #090d16;
+            background: radial-gradient(circle at top right, #1e1b4b 0%, #0f172a 40%, #020617 100%);
+            color: #f8fafc;
+            min-height: 100vh;
+            overflow-x: hidden;
         }
-        /* Efeito Glassmorphism */
+
+        h1, h2, h3, .font-game {
+            font-family: 'Space Grotesk', sans-serif;
+        }
+
+        /* Glassmorphism Utilities */
         .glass-panel {
-            background: rgba(15, 23, 42, 0.75);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
         }
-        .glass-card {
-            background: rgba(30, 41, 59, 0.6);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
+        
+        .glass-button {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.2s ease;
         }
+        .glass-button:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--accent);
+            transform: translateY(-2px);
+        }
+        .glass-button.active {
+            background: rgba(99, 102, 241, 0.2);
+            border-color: var(--accent);
+            color: #c7d2fe;
+        }
+
         /* Custom Scrollbar */
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: rgba(15, 23, 42, 0.6);
-        }
-        ::-webkit-scrollbar-thumb {
-            background: rgba(99, 102, 241, 0.4);
-            border-radius: 9999px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: rgba(99, 102, 241, 0.8);
-        }
-        /* Canvas Mirror Efeito */
-        .mirror-canvas {
-            transform: scaleX(-1);
-        }
-        /* Range Sliders Estilizados */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+        /* Range Sliders */
         input[type=range] {
             -webkit-appearance: none;
+            width: 100%;
             background: transparent;
-        }
-        input[type=range]:focus {
-            outline: none;
+            height: 6px;
+            border-radius: 3px;
         }
         input[type=range]::-webkit-slider-runnable-track {
             width: 100%;
             height: 6px;
-            cursor: pointer;
-            background: #334155;
-            border-radius: 9999px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 3px;
         }
         input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
             height: 16px;
             width: 16px;
             border-radius: 50%;
-            background: #818cf8;
+            background: var(--accent);
             cursor: pointer;
-            -webkit-appearance: none;
             margin-top: -5px;
-            box-shadow: 0 0 10px rgba(129, 140, 248, 0.5);
+            box-shadow: 0 0 10px rgba(99, 102, 241, 0.6);
+            transition: transform 0.1s;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        /* Loading Spinner */
+        .loader {
+            border: 3px solid rgba(255,255,255,0.1);
+            border-left-color: var(--accent);
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Game Animations */
+        @keyframes floatScore {
+            0% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-40px) scale(1.5); }
+        }
+        .score-anim {
+            position: absolute;
+            animation: floatScore 0.8s ease-out forwards;
+            pointer-events: none;
+            font-weight: bold;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.8);
         }
     </style>
 </head>
-<body class="text-slate-100 min-h-screen flex flex-col justify-between selection:bg-indigo-500 selection:text-white">
+<body class="flex flex-col">
 
-    <!-- BARRA SUPERIOR / NAVEGAÇÃO -->
-    <header class="sticky top-0 z-40 glass-panel border-b border-slate-800 px-4 lg:px-8 py-3">
-        <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+    <!-- HEADER -->
+    <header class="glass-panel sticky top-0 z-50 px-6 py-4 border-b-0 rounded-b-2xl mx-2 mt-2">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
             
-            <!-- Logo & Estado da Câmara -->
             <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/30">
-                    <i data-lucide="camera" class="w-5 h-5 text-white"></i>
+                <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                    <i data-lucide="aperture" class="w-7 h-7 text-white"></i>
                 </div>
                 <div>
-                    <h1 class="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-200 to-indigo-300">
-                        Câmara Studio Pro <span class="text-xs font-normal text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-full border border-indigo-500/20">v2.5</span>
-                    </h1>
-                    <p class="text-xs text-slate-400">Efeitos em Tempo Real & Jogos AR com Rastreio de Cabeça</p>
+                    <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-indigo-300">Câmara Studio Pro</h1>
+                    <div class="flex items-center gap-2 text-xs font-medium text-slate-400 mt-0.5">
+                        <span id="aiStatus" class="flex items-center gap-1.5 text-amber-400">
+                            <div class="loader w-3 h-3 border-[2px]"></div> IA a carregar...
+                        </span>
+                    </div>
                 </div>
             </div>
 
-            <!-- NAVEGAÇÃO POR SEPARADORES (TABS) -->
-            <nav class="flex items-center bg-slate-900/90 p-1 rounded-xl border border-slate-800 text-xs sm:text-sm font-medium">
-                <button id="tabCameraBtn" onclick="switchTab('camera')" class="px-3 sm:px-4 py-2 rounded-lg flex items-center gap-2 transition-all bg-indigo-600 text-white shadow-md">
-                    <i data-lucide="sliders" class="w-4 h-4"></i>
-                    <span>Câmara & Efeitos</span>
+            <!-- TABS -->
+            <nav class="flex p-1 bg-slate-900/60 rounded-xl border border-slate-700/50">
+                <button onclick="switchTab('filters')" id="tab-filters" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium transition-all active bg-indigo-600 shadow-md flex gap-2 items-center">
+                    <i data-lucide="sliders-horizontal" class="w-4 h-4"></i> Filtros
                 </button>
-                <button id="tabGameBtn" onclick="switchTab('game')" class="px-3 sm:px-4 py-2 rounded-lg flex items-center gap-2 transition-all text-slate-400 hover:text-white">
-                    <i data-lucide="gamepad-2" class="w-4 h-4"></i>
-                    <span>Jogo TikTok (Head Tracker)</span>
+                <button onclick="switchTab('ar')" id="tab-ar" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium transition-all text-slate-400 hover:text-white flex gap-2 items-center">
+                    <i data-lucide="sparkles" class="w-4 h-4"></i> Efeitos AR
                 </button>
-                <button id="tabHelpBtn" onclick="switchTab('help')" class="px-3 sm:px-4 py-2 rounded-lg flex items-center gap-2 transition-all text-slate-400 hover:text-white">
-                    <i data-lucide="help-circle" class="w-4 h-4"></i>
-                    <span>Ajuda / Mac</span>
+                <button onclick="switchTab('game')" id="tab-game" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium transition-all text-slate-400 hover:text-white flex gap-2 items-center">
+                    <i data-lucide="gamepad-2" class="w-4 h-4"></i> Jogo
                 </button>
             </nav>
 
-            <!-- BOTAO DE ATIVAÇÃO RÁPIDA -->
-            <div class="flex items-center gap-2">
-                <button id="quickToggleBtn" onclick="toggleCamera()" class="px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20 transition-all active:scale-95">
-                    <i data-lucide="power" class="w-4 h-4"></i>
-                    <span id="quickToggleText">Ligar Câmara</span>
-                </button>
-            </div>
+            <button id="toggleCamBtn" onclick="toggleCamera()" class="px-5 py-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 font-semibold text-sm transition-all flex items-center gap-2">
+                <i data-lucide="power" class="w-4 h-4"></i>
+                <span id="toggleCamText">Ligar Câmara</span>
+            </button>
         </div>
     </header>
 
-    <!-- CONTEÚDO PRINCIPAL -->
-    <main class="max-w-7xl mx-auto w-full flex-grow p-4 lg:p-6">
-
-        <!-- ALERTA / BANNER DE PROTOCOLO FILE:// OU FALHA DE PERMISSÃO -->
-        <div id="protocolWarning" class="hidden mb-6 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+    <!-- MAIN CONTENT -->
+    <main class="flex-grow max-w-7xl w-full mx-auto p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 relative">
+        
+        <!-- Alerta macOS / Permissões -->
+        <div id="macAlert" class="hidden lg:col-span-12 glass-panel border-amber-500/30 bg-amber-500/10 p-4 rounded-2xl flex items-center justify-between gap-4">
             <div class="flex items-start gap-3">
-                <div class="p-2 bg-amber-500/20 rounded-xl mt-0.5 md:mt-0">
-                    <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-400"></i>
-                </div>
+                <i data-lucide="shield-alert" class="w-5 h-5 text-amber-400 mt-0.5"></i>
                 <div>
-                    <h4 class="font-semibold text-sm">Atenção ao abrir como ficheiro local (file://)</h4>
-                    <p class="text-xs text-amber-400/80 mt-0.5">Por motivos de segurança, o macOS e navegadores como Chrome/Safari podem proibir a câmara em ficheiros abertos diretamente. Se falhar, usa um servidor local como <code class="bg-amber-950 px-1 py-0.5 rounded text-amber-200">php -S localhost:8000</code> ou o Live Server do VS Code.</p>
+                    <h4 class="text-sm font-bold text-amber-300">Problemas no Mac / Permissões?</h4>
+                    <p class="text-xs text-amber-200/70 mt-1">Se a câmara não ligar, vai a <b>Definições do Sistema > Privacidade e Segurança > Câmara</b> e permite o navegador. Evita abrir diretamente o ficheiro (usa um servidor local se der erro de segurança).</p>
                 </div>
             </div>
-            <button onclick="switchTab('help')" class="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-xs font-semibold whitespace-nowrap">
-                Ver Guia de Ativação Mac
-            </button>
+            <button onclick="document.getElementById('macAlert').style.display='none'" class="p-2 hover:bg-amber-500/20 rounded-lg"><i data-lucide="x" class="w-4 h-4 text-amber-400"></i></button>
         </div>
 
-        <!-- ==================== TAB 1: CÂMARA & EFEITOS ==================== -->
-        <section id="tabCamera" class="space-y-6">
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <!-- CAMERA / CANVAS AREA (Esquerda - 8 colunas) -->
+        <div class="lg:col-span-8 flex flex-col gap-4">
+            <div class="glass-panel p-2 rounded-3xl relative shadow-2xl border border-slate-700 overflow-hidden">
                 
-                <!-- ÁREA DA CÂMARA / CANVAS PRINCIPAL (8 COLUNAS) -->
-                <div class="lg:col-span-8 flex flex-col gap-4">
-                    <div class="glass-panel rounded-3xl p-3 sm:p-5 relative overflow-hidden shadow-2xl border border-slate-800">
-                        
-                        <!-- VIEWPORT DO VÍDEO / CANVAS -->
-                        <div id="videoContainer" class="relative w-full aspect-video bg-slate-950 rounded-2xl overflow-hidden border border-slate-800 flex items-center justify-center group shadow-inner">
-                            
-                            <!-- Elemento Video Escondido (Usado como Fonte para Canvas) -->
-                            <video id="webcam" autoplay playsinline class="hidden"></video>
-                            
-                            <!-- Canvas Renderizador de Efeitos em Tempo Real -->
-                            <canvas id="cameraCanvas" class="w-full h-full object-cover mirror-canvas rounded-2xl"></canvas>
-
-                            <!-- OVERLAY DE GRELHA PRO (RULE OF THIRDS / TARGET) -->
-                            <div id="gridOverlay" class="hidden absolute inset-0 pointer-events-none z-10 grid grid-cols-3 grid-rows-3 border border-indigo-500/20">
-                                <div class="border-r border-b border-indigo-500/20"></div>
-                                <div class="border-r border-b border-indigo-500/20"></div>
-                                <div class="border-b border-indigo-500/20"></div>
-                                <div class="border-r border-b border-indigo-500/20"></div>
-                                <div class="border-r border-b border-indigo-500/20 flex items-center justify-center">
-                                    <div class="w-6 h-6 border border-indigo-400/40 rounded-full"></div>
-                                </div>
-                                <div class="border-b border-indigo-500/20"></div>
-                                <div class="border-r border-indigo-500/20"></div>
-                                <div class="border-r border-indigo-500/20"></div>
-                                <div></div>
-                            </div>
-
-                            <!-- BADGES DE STATUS SOBREPOSTOS -->
-                            <div class="absolute top-4 left-4 z-20 flex items-center gap-2">
-                                <div id="statusBadge" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900/90 backdrop-blur-md border border-slate-700/80 text-xs font-semibold text-slate-400">
-                                    <span id="statusDot" class="w-2.5 h-2.5 rounded-full bg-slate-500"></span>
-                                    <span id="statusText">Desligada</span>
-                                </div>
-                                <div id="fpsBadge" class="hidden items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-900/90 backdrop-blur-md border border-slate-700/80 text-xs font-medium text-indigo-300">
-                                    <i data-lucide="activity" class="w-3.5 h-3.5 text-indigo-400"></i>
-                                    <span id="fpsCounter">0 FPS</span>
-                                </div>
-                            </div>
-
-                            <div class="absolute top-4 right-4 z-20 flex items-center gap-2">
-                                <div id="recBadge" class="hidden items-center gap-2 px-3 py-1.5 rounded-full bg-rose-600/90 text-white backdrop-blur-md text-xs font-bold animate-pulse">
-                                    <span class="w-2.5 h-2.5 rounded-full bg-white"></span>
-                                    <span id="recTimer">REC 00:00</span>
-                                </div>
-                                <div id="resBadge" class="hidden items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-900/90 backdrop-blur-md border border-slate-700/80 text-xs font-medium text-slate-300">
-                                    <span id="resText">1920 x 1080</span>
-                                </div>
-                            </div>
-
-                            <!-- TELA INICIAL QUANDO CÂMARA DESLIGADA -->
-                            <div id="placeholderState" class="absolute inset-0 z-10 flex flex-col items-center justify-center text-center p-6 bg-slate-950/90 backdrop-blur-sm">
-                                <div class="w-20 h-20 rounded-3xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 mb-4 shadow-xl">
-                                    <i data-lucide="video-off" class="w-10 h-10"></i>
-                                </div>
-                                <h3 class="text-xl font-bold text-white mb-1">Câmara Inativa</h3>
-                                <p class="text-xs sm:text-sm text-slate-400 max-w-md mb-6">
-                                    Clica no botão para iniciar a transmissão. Garante que permitiste o acesso à câmara no teu Mac ou navegador.
-                                </p>
-                                <button onclick="startCamera()" class="px-6 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm shadow-xl shadow-indigo-600/30 flex items-center gap-2.5 transition-all active:scale-95">
-                                    <i data-lucide="video" class="w-5 h-5"></i>
-                                    <span>Solicitar & Ligar Câmara</span>
-                                </button>
-                            </div>
-
-                            <!-- CONTAGEM DECRESCENTE PARA FOTO -->
-                            <div id="countdownOverlay" class="hidden absolute inset-0 z-30 flex items-center justify-center bg-black/40 backdrop-blur-md">
-                                <span id="countdownNumber" class="text-9xl font-extrabold text-indigo-400 animate-ping">3</span>
-                            </div>
-
-                        </div>
-
-                        <!-- CONTROLO PRINCIPAL BARRA DE AÇÃO (TIRAR FOTO, GRAVAR VÍDEO, ESPELHO, ASPECT RATIO) -->
-                        <div class="mt-4 pt-4 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3">
-                            
-                            <!-- Grupo Esquerdo: Controlos de Ação Principal -->
-                            <div class="flex items-center gap-3 w-full sm:w-auto">
-                                <button id="capturePhotoBtn" onclick="triggerPhotoCapture()" disabled class="flex-1 sm:flex-none px-5 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-600 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20 transition-all active:scale-95">
-                                    <i data-lucide="camera" class="w-4 h-4"></i>
-                                    <span>Tirar Foto</span>
-                                </button>
-
-                                <button id="recordVideoBtn" onclick="toggleVideoRecording()" disabled class="flex-1 sm:flex-none px-5 py-3 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:bg-slate-800 disabled:text-slate-600 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-rose-600/20 transition-all active:scale-95">
-                                    <i data-lucide="disc" class="w-4 h-4"></i>
-                                    <span id="recordVideoText">Gravar Vídeo</span>
-                                </button>
-                            </div>
-
-                            <!-- Grupo Direito: Seleções Rápidas & Utilitários -->
-                            <div class="flex items-center gap-2 w-full sm:w-auto flex-wrap justify-end">
-                                
-                                <!-- Timer para Foto -->
-                                <div class="flex items-center bg-slate-900 border border-slate-800 rounded-xl p-1 text-xs">
-                                    <i data-lucide="timer" class="w-3.5 h-3.5 text-slate-400 ml-2"></i>
-                                    <select id="timerSelect" class="bg-transparent text-slate-200 px-2 py-1 focus:outline-none cursor-pointer">
-                                        <option value="0">Sem Timer</option>
-                                        <option value="3">3 Segundos</option>
-                                        <option value="5">5 Segundos</option>
-                                    </select>
-                                </div>
-
-                                <!-- Efeito Espelho Toggle -->
-                                <button onclick="toggleMirror()" title="Alternar Espelho" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 transition-all">
-                                    <i data-lucide="flip-horizontal" class="w-4 h-4"></i>
-                                </button>
-
-                                <!-- Grid Overlay Toggle -->
-                                <button onclick="toggleGrid()" title="Grelha de Enquadramento" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 transition-all">
-                                    <i data-lucide="grid" class="w-4 h-4"></i>
-                                </button>
-
-                                <!-- Proporção Aspect Ratio -->
-                                <div class="flex items-center bg-slate-900 border border-slate-800 rounded-xl p-1 text-xs">
-                                    <select id="aspectRatioSelect" onchange="changeAspectRatio()" class="bg-transparent text-slate-200 px-2 py-1 focus:outline-none cursor-pointer">
-                                        <option value="16:9">16:9 (Widescreen)</option>
-                                        <option value="4:3">4:3 (Clássico)</option>
-                                        <option value="1:1">1:1 (Quadrado)</option>
-                                        <option value="9:16">9:16 (Vertical TikTok)</option>
-                                    </select>
-                                </div>
-
-                            </div>
-                        </div>
-
-                    </div>
-
-                    <!-- GALERIA DE CAPTURAS / DOWNLOADS DA SESSÃO -->
-                    <div id="mediaGallerySection" class="glass-panel rounded-3xl p-4 sm:p-5 border border-slate-800">
-                        <div class="flex items-center justify-between mb-3">
-                            <h3 class="text-sm font-semibold text-slate-200 flex items-center gap-2">
-                                <i data-lucide="folder-down" class="w-4 h-4 text-indigo-400"></i>
-                                <span>Galeria da Sessão (Fotos e Vídeos)</span>
-                            </h3>
-                            <span id="galleryCount" class="text-xs text-slate-400">0 ficheiros</span>
-                        </div>
-                        <div id="galleryGrid" class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                            <div class="col-span-full py-6 text-center text-slate-500 text-xs italic">
-                                As tuas capturas e gravações aparecerão aqui para descarregar instantaneamente.
-                            </div>
-                        </div>
-                    </div>
-
-                </div>
-
-                <!-- PAINEL LATERAL DE CONTROLOS DE FILTROS E AJUSTES (4 COLUNAS) -->
-                <div class="lg:col-span-4 space-y-5">
+                <!-- O Ecrã Real -->
+                <div class="relative w-full aspect-video bg-black rounded-2xl overflow-hidden flex items-center justify-center group" id="canvasWrapper">
                     
-                    <!-- SELETOR DE PRESETS / FILTROS PROFISSIONAIS -->
-                    <div class="glass-panel rounded-3xl p-4 sm:p-5 border border-slate-800">
-                        <h3 class="text-sm font-bold text-slate-200 mb-3 flex items-center gap-2">
-                            <i data-lucide="wand2" class="w-4 h-4 text-indigo-400"></i>
-                            <span>Presets de Filtro Profissionais</span>
-                        </h3>
+                    <!-- Video Escondido (Fonte de Dados) -->
+                    <video id="webcam" class="hidden" autoplay playsinline></video>
+                    
+                    <!-- Canvas Principal (Onde a magia acontece) -->
+                    <!-- NOTA: O CSS de scaleX(-1) foi REMOVIDO daqui. 
+                         O espelhamento é feito no JavaScript (ctx.scale) 
+                         para garantir que a física do Jogo e coordenadas AR coincidam perfeitamente. -->
+                    <canvas id="mainCanvas" class="w-full h-full object-cover"></canvas>
 
-                        <div class="grid grid-cols-2 gap-2">
-                            <button onclick="applyPreset('normal')" class="preset-btn px-3 py-2 rounded-xl border border-slate-700 bg-slate-800/80 hover:border-indigo-500 text-xs font-medium text-left transition-all">
-                                ✨ Normal / Limpo
-                            </button>
-                            <button onclick="applyPreset('cyberpunk')" class="preset-btn px-3 py-2 rounded-xl border border-slate-700 bg-slate-800/80 hover:border-indigo-500 text-xs font-medium text-left transition-all text-pink-400">
-                                🌆 Cyberpunk Neon
-                            </button>
-                            <button onclick="applyPreset('vintage')" class="preset-btn px-3 py-2 rounded-xl border border-slate-700 bg-slate-800/80 hover:border-indigo-500 text-xs font-medium text-left transition-all text-amber-400">
-                                📜 Retro Vintage
-                            </button>
-                            <button onclick="applyPreset('noir')" class="preset-btn px-3 py-2 rounded-xl border border-slate-700 bg-slate-800/80 hover:border-indigo-500 text-xs font-medium text-left transition-all text-slate-300">
-                                🎬 Film Noir (P&B)
-                            </button>
-                            <button onclick="applyPreset('beauty')" class="preset-btn px-3 py-2 rounded-xl border border-slate-700 bg-slate-800/80 hover:border-indigo-500 text-xs font-medium text-left transition-all text-rose-300">
-                                🌸 Soft Beauty Glow
-                            </button>
-                            <button onclick="applyPreset('matrix')" class="preset-btn px-3 py-2 rounded-xl border border-slate-700 bg-slate-800/80 hover:border-indigo-500 text-xs font-medium text-left transition-all text-emerald-400">
-                                🟢 Matrix Digital
-                            </button>
-                            <button onclick="applyPreset('hdr')" class="preset-btn px-3 py-2 rounded-xl border border-slate-700 bg-slate-800/80 hover:border-indigo-500 text-xs font-medium text-left transition-all text-cyan-300">
-                                ⚡ HDR High Contrast
-                            </button>
-                            <button onclick="applyPreset('warm')" class="preset-btn px-3 py-2 rounded-xl border border-slate-700 bg-slate-800/80 hover:border-indigo-500 text-xs font-medium text-left transition-all text-orange-300">
-                                🌅 Warm Sunset
-                            </button>
+                    <!-- Overlays de Interface -->
+                    <div id="camOverlay" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-md z-20">
+                        <div class="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center mb-4">
+                            <i data-lucide="video-off" class="w-8 h-8 text-slate-400"></i>
                         </div>
+                        <h3 class="text-lg font-bold text-white mb-2 font-game">Câmara Desligada</h3>
+                        <p class="text-sm text-slate-400 mb-6 max-w-sm text-center">Inicia a câmara para testares os efeitos em tempo real, realidade aumentada e o jogo interativo.</p>
+                        <button onclick="toggleCamera()" class="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm shadow-lg shadow-indigo-600/30 flex gap-2 items-center transition-all transform hover:scale-105">
+                            <i data-lucide="camera" class="w-4 h-4"></i> Ativar Câmara
+                        </button>
                     </div>
 
-                    <!-- CONTROLO SLIDERS MANUAIS (BRILHO, CONTRASTE, SATURAÇÃO, ETC.) -->
-                    <div class="glass-panel rounded-3xl p-4 sm:p-5 border border-slate-800 space-y-4">
-                        <div class="flex items-center justify-between">
-                            <h3 class="text-sm font-bold text-slate-200 flex items-center gap-2">
-                                <i data-lucide="sliders-horizontal" class="w-4 h-4 text-indigo-400"></i>
-                                <span>Ajustes de Imagem</span>
-                            </h3>
-                            <button onclick="resetSliders()" class="text-xs text-indigo-400 hover:text-indigo-300 underline">
-                                Repor
-                            </button>
-                        </div>
-
-                        <!-- Brilho -->
-                        <div class="space-y-1">
-                            <div class="flex justify-between text-xs text-slate-300">
-                                <span>Brilho</span>
-                                <span id="valBrightness">100%</span>
-                            </div>
-                            <input type="range" id="sliderBrightness" min="50" max="200" value="100" oninput="updateFilters()">
-                        </div>
-
-                        <!-- Contraste -->
-                        <div class="space-y-1">
-                            <div class="flex justify-between text-xs text-slate-300">
-                                <span>Contraste</span>
-                                <span id="valContrast">100%</span>
-                            </div>
-                            <input type="range" id="sliderContrast" min="50" max="200" value="100" oninput="updateFilters()">
-                        </div>
-
-                        <!-- Saturação -->
-                        <div class="space-y-1">
-                            <div class="flex justify-between text-xs text-slate-300">
-                                <span>Saturação</span>
-                                <span id="valSaturate">100%</span>
-                            </div>
-                            <input type="range" id="sliderSaturate" min="0" max="300" value="100" oninput="updateFilters()">
-                        </div>
-
-                        <!-- Matiz / Hue Rotate -->
-                        <div class="space-y-1">
-                            <div class="flex justify-between text-xs text-slate-300">
-                                <span>Matiz (Hue)</span>
-                                <span id="valHue">0°</span>
-                            </div>
-                            <input type="range" id="sliderHue" min="0" max="360" value="0" oninput="updateFilters()">
-                        </div>
-
-                        <!-- Desfocagem / Blur -->
-                        <div class="space-y-1">
-                            <div class="flex justify-between text-xs text-slate-300">
-                                <span>Desfocagem / Soft Blur</span>
-                                <span id="valBlur">0px</span>
-                            </div>
-                            <input type="range" id="sliderBlur" min="0" max="10" value="0" step="0.5" oninput="updateFilters()">
-                        </div>
-
-                        <!-- Sépia -->
-                        <div class="space-y-1">
-                            <div class="flex justify-between text-xs text-slate-300">
-                                <span>Tom Sépia</span>
-                                <span id="valSepia">0%</span>
-                            </div>
-                            <input type="range" id="sliderSepia" min="0" max="100" value="0" oninput="updateFilters()">
-                        </div>
+                    <!-- FPS e Info -->
+                    <div class="absolute top-4 left-4 z-10 flex gap-2">
+                        <span id="fpsBadge" class="hidden px-3 py-1 bg-black/60 backdrop-blur border border-white/10 rounded-full text-[10px] font-mono text-emerald-400 items-center gap-1.5">
+                            <div class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
+                            <span id="fpsCount">60 FPS</span>
+                        </span>
                     </div>
 
-                    <!-- MÁSCARAS E AR OVERLAYS -->
-                    <div class="glass-panel rounded-3xl p-4 sm:p-5 border border-slate-800 space-y-3">
-                        <h3 class="text-sm font-bold text-slate-200 flex items-center gap-2">
-                            <i data-lucide="sparkles" class="w-4 h-4 text-purple-400"></i>
-                            <span>Acessórios AR / Adereços</span>
-                        </h3>
-                        <div class="grid grid-cols-2 gap-2">
-                            <button onclick="setARMask('none')" class="ar-btn px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 text-left">
-                                🚫 Nenhum
-                            </button>
-                            <button onclick="setARMask('crown')" class="ar-btn px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-amber-300 text-left">
-                                👑 Coroa Dourada
-                            </button>
-                            <button onclick="setARMask('glasses')" class="ar-btn px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-indigo-300 text-left">
-                                🕶️ Óculos Thug Life
-                            </button>
-                            <button onclick="setARMask('ears')" class="ar-btn px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-pink-300 text-left">
-                                🐱 Orelhas de Gato
-                            </button>
+                    <!-- Game HUD Overlay -->
+                    <div id="gameHud" class="hidden absolute top-4 right-4 z-10 flex gap-3">
+                        <div class="px-4 py-2 bg-black/60 backdrop-blur border border-white/10 rounded-xl text-center">
+                            <p class="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Pontos</p>
+                            <p id="gameScore" class="text-xl font-game font-bold text-amber-400">0</p>
+                        </div>
+                        <div class="px-4 py-2 bg-black/60 backdrop-blur border border-white/10 rounded-xl text-center">
+                            <p class="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Vidas</p>
+                            <p id="gameLives" class="text-xl font-game font-bold text-rose-400">❤️❤️❤️</p>
                         </div>
                     </div>
-
+                    
+                    <!-- Elementos de Animação (Pontuações flutuantes) vão ser injetados aqui -->
+                    <div id="animContainer" class="absolute inset-0 pointer-events-none overflow-hidden z-30"></div>
                 </div>
 
+                <!-- Botões Inferiores (Foto) -->
+                <div class="mt-2 flex gap-2 p-2">
+                    <button onclick="takePhoto()" id="photoBtn" disabled class="flex-1 py-3 rounded-xl glass-button text-sm font-semibold flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i data-lucide="camera" class="w-4 h-4"></i> Capturar Foto
+                    </button>
+                    <a id="downloadLink" class="hidden"></a>
+                </div>
             </div>
-        </section>
+        </div>
 
-        <!-- ==================== TAB 2: JOGO TIKTOK (HEAD TRACKER) ==================== -->
-        <section id="tabGame" class="hidden space-y-6">
-            <div class="glass-panel rounded-3xl p-6 border border-slate-800">
-                
-                <!-- CABEÇALHO DO JOGO -->
-                <div class="flex flex-col md:flex-row items-center justify-between gap-4 mb-6 border-b border-slate-800 pb-4">
-                    <div>
-                        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs font-bold uppercase tracking-wider mb-1">
-                            <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
-                            <span>Jogo Interativo AR</span>
-                        </div>
-                        <h2 class="text-2xl font-bold text-white">Desafio da Cabeça: Apanha as Estrelas! 🌟</h2>
-                        <p class="text-xs text-slate-400">Mexe a tua cabeça para a esquerda e direita para apanhar as estrelas e desviar das bombas!</p>
-                    </div>
-
-                    <!-- PLACAR DE PONTUAÇÃO -->
-                    <div class="flex items-center gap-4 bg-slate-900/90 p-3 rounded-2xl border border-slate-800">
-                        <div class="text-center px-3 border-r border-slate-800">
-                            <p class="text-xs text-slate-400 uppercase font-bold">Pontuação</p>
-                            <p id="gameScore" class="text-2xl font-black text-amber-400">0</p>
-                        </div>
-                        <div class="text-center px-3 border-r border-slate-800">
-                            <p class="text-xs text-slate-400 uppercase font-bold">Tempo</p>
-                            <p id="gameTimer" class="text-2xl font-black text-indigo-400">30s</p>
-                        </div>
-                        <div class="text-center px-3">
-                            <p class="text-xs text-slate-400 uppercase font-bold">Recorde</p>
-                            <p id="gameHighScore" class="text-2xl font-black text-emerald-400">0</p>
-                        </div>
+        <!-- PAINEL LATERAL DE CONTROLOS (Direita - 4 colunas) -->
+        <div class="lg:col-span-4 glass-panel rounded-3xl p-5 border border-slate-700 flex flex-col gap-6 h-[fit-content]">
+            
+            <!-- SECÇÃO: FILTROS (Ativa por defeito) -->
+            <div id="panel-filters" class="panel-section block space-y-6">
+                <div>
+                    <h3 class="text-sm font-bold text-slate-200 mb-3 flex items-center gap-2 uppercase tracking-wide">
+                        <i data-lucide="wand-2" class="w-4 h-4 text-indigo-400"></i> Estilos PRO
+                    </h3>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="setBaseEffect('normal')" class="glass-button px-3 py-2 rounded-lg text-xs font-medium text-left">✨ Normal</button>
+                        <button onclick="setBaseEffect('cinematic')" class="glass-button px-3 py-2 rounded-lg text-xs font-medium text-left text-amber-100">🎬 Cinematic</button>
+                        <button onclick="setBaseEffect('cyberpunk')" class="glass-button px-3 py-2 rounded-lg text-xs font-medium text-left text-pink-300">🌆 Cyberpunk</button>
+                        <button onclick="setBaseEffect('vhs')" class="glass-button px-3 py-2 rounded-lg text-xs font-medium text-left text-green-300">📼 VHS Retro</button>
+                        <button onclick="setBaseEffect('glitch')" class="glass-button px-3 py-2 rounded-lg text-xs font-medium text-left text-cyan-300 col-span-2 text-center border-cyan-500/30">⚡ RGB Glitch</button>
                     </div>
                 </div>
 
-                <!-- ÁREA DO CANVAS DO JOGO -->
-                <div class="relative w-full aspect-video bg-slate-950 rounded-2xl overflow-hidden border border-slate-800 shadow-2xl flex items-center justify-center">
-                    <canvas id="gameCanvas" class="w-full h-full object-cover mirror-canvas rounded-2xl"></canvas>
+                <div class="space-y-4 pt-4 border-t border-slate-800">
+                    <h3 class="text-sm font-bold text-slate-200 flex items-center gap-2 uppercase tracking-wide">
+                        <i data-lucide="sliders" class="w-4 h-4 text-indigo-400"></i> Ajustes
+                    </h3>
+                    
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-[11px] text-slate-400"><span>Brilho</span> <span id="lblBright">100%</span></div>
+                        <input type="range" id="slBright" min="50" max="200" value="100" oninput="updateAdjustments()">
+                    </div>
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-[11px] text-slate-400"><span>Contraste</span> <span id="lblCont">100%</span></div>
+                        <input type="range" id="slCont" min="50" max="200" value="100" oninput="updateAdjustments()">
+                    </div>
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-[11px] text-slate-400"><span>Saturação</span> <span id="lblSat">100%</span></div>
+                        <input type="range" id="slSat" min="0" max="300" value="100" oninput="updateAdjustments()">
+                    </div>
+                </div>
+            </div>
 
-                    <!-- OVERLAY DE INÍCIO OU GAMEOVER DO JOGO -->
-                    <div id="gameOverlay" class="absolute inset-0 bg-slate-950/85 backdrop-blur-md z-20 flex flex-col items-center justify-center text-center p-6 space-y-4">
-                        <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-500 to-indigo-600 flex items-center justify-center text-white shadow-xl shadow-indigo-500/20">
-                            <i data-lucide="trophy" class="w-8 h-8"></i>
-                        </div>
-                        <div>
-                            <h3 id="gameOverlayTitle" class="text-2xl font-extrabold text-white">Pronto para o Desafio?</h3>
-                            <p id="gameOverlaySub" class="text-sm text-slate-400 max-w-md mt-1">
-                                Garante que a câmara está ligada. Rosto e cabeça serão detetados em tempo real para controlar a tua personagem.
-                            </p>
-                        </div>
-                        <button onclick="startGame()" class="px-8 py-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-sm shadow-xl shadow-indigo-600/30 flex items-center gap-2 transition-all active:scale-95">
-                            <i data-lucide="play" class="w-5 h-5 fill-current"></i>
-                            <span>Iniciar Jogo (30s)</span>
+            <!-- SECÇÃO: EFEITOS AR -->
+            <div id="panel-ar" class="panel-section hidden space-y-6">
+                <div>
+                    <h3 class="text-sm font-bold text-slate-200 mb-2 flex items-center gap-2 uppercase tracking-wide">
+                        <i data-lucide="smile" class="w-4 h-4 text-purple-400"></i> Máscaras Faciais
+                    </h3>
+                    <p class="text-xs text-slate-400 mb-4">Usa a IA para mapear elementos no teu rosto em tempo real.</p>
+                    
+                    <div class="grid grid-cols-1 gap-2">
+                        <button onclick="setAR('none')" class="glass-button px-4 py-3 rounded-xl text-sm font-medium flex items-center justify-between active">
+                            <span>🚫 Sem Máscara</span>
+                        </button>
+                        <button onclick="setAR('thug')" class="glass-button px-4 py-3 rounded-xl text-sm font-medium flex items-center justify-between text-indigo-200">
+                            <span>🕶️ Óculos Thug Life</span> <span class="text-[10px] bg-indigo-500/20 px-2 py-1 rounded">Olhos</span>
+                        </button>
+                        <button onclick="setAR('dog')" class="glass-button px-4 py-3 rounded-xl text-sm font-medium flex items-center justify-between text-amber-200">
+                            <span>🐶 Orelhas de Cão & Nariz</span> <span class="text-[10px] bg-amber-500/20 px-2 py-1 rounded">Testa + Nariz</span>
+                        </button>
+                        <button onclick="setAR('crown')" class="glass-button px-4 py-3 rounded-xl text-sm font-medium flex items-center justify-between text-yellow-300">
+                            <span>👑 Coroa Real</span> <span class="text-[10px] bg-yellow-500/20 px-2 py-1 rounded">Topo</span>
                         </button>
                     </div>
                 </div>
-
             </div>
-        </section>
 
-        <!-- ==================== TAB 3: AJUDA & PERMISSÕES MACOS ==================== -->
-        <section id="tabHelp" class="hidden space-y-6">
-            <div class="glass-panel rounded-3xl p-6 sm:p-8 border border-slate-800 space-y-6">
-                
-                <div>
-                    <h2 class="text-2xl font-bold text-white flex items-center gap-3">
-                        <i data-lucide="shield-alert" class="w-7 h-7 text-indigo-400"></i>
-                        <span>Resolução de Problemas e Permissões no macOS</span>
-                    </h2>
-                    <p class="text-sm text-slate-400 mt-1">
-                        Se a tua câmara não liga ou dá erro de permissão no Mac, segue este guia passo a passo.
-                    </p>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- SECÇÃO: JOGO INTERATIVO -->
+            <div id="panel-game" class="panel-section hidden space-y-4">
+                <div class="p-4 rounded-2xl bg-indigo-900/30 border border-indigo-500/30 text-center">
+                    <div class="w-12 h-12 bg-indigo-600 rounded-full flex items-center justify-center mx-auto mb-2 text-2xl">🐽</div>
+                    <h3 class="font-game font-bold text-lg text-white mb-1">Apanha Estrelas!</h3>
+                    <p class="text-xs text-indigo-200 mb-4">Usa o teu <b class="text-white">nariz</b> para mover o cesto (círculo) da esquerda para a direita. <br>⭐ = +10 pts | 💣 = -1 Vida.</p>
                     
-                    <!-- PASSO 1: DEF. SISTEMA MAC -->
-                    <div class="glass-card p-5 rounded-2xl space-y-3">
-                        <div class="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 font-bold flex items-center justify-center text-lg">
-                            1
-                        </div>
-                        <h3 class="font-bold text-white text-base">Definições do macOS</h3>
-                        <ol class="text-xs text-slate-300 space-y-2 list-decimal list-inside leading-relaxed">
-                            <li>Clica no ícone <b>Apple ()</b> no canto superior esquerdo.</li>
-                            <li>Abre <b>Definições do Sistema</b>.</li>
-                            <li>Vai a <b>Privacidade e Segurança</b> &gt; <b>Câmara</b>.</li>
-                            <li>Ativa a permissão para o teu navegador (Chrome, Safari, Firefox).</li>
-                        </ol>
-                    </div>
-
-                    <!-- PASSO 2: NAVEGADOR -->
-                    <div class="glass-card p-5 rounded-2xl space-y-3">
-                        <div class="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 font-bold flex items-center justify-center text-lg">
-                            2
-                        </div>
-                        <h3 class="font-bold text-white text-base">Permissões do Navegador</h3>
-                        <ol class="text-xs text-slate-300 space-y-2 list-decimal list-inside leading-relaxed">
-                            <li>No Chrome/Brave: Clica no ícone de <b>Definições/Cadeado</b> ao lado da barra de URL.</li>
-                            <li>Procura por <b>Câmara</b> e muda para <b>Permitir</b>.</li>
-                            <li>No Safari: Clica no menu <b>Safari</b> &gt; <b>Definições para este site...</b> e ativa a Câmara.</li>
-                        </ol>
-                    </div>
-
-                    <!-- PASSO 3: SERVIDOR LOCAL -->
-                    <div class="glass-card p-5 rounded-2xl space-y-3">
-                        <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-bold flex items-center justify-center text-lg">
-                            3
-                        </div>
-                        <h3 class="font-bold text-white text-base">Executar como Servidor Local</h3>
-                        <p class="text-xs text-slate-300 leading-relaxed">
-                            O Mac bloqueia a câmara se abrires o ficheiro como <code class="bg-slate-900 px-1 text-indigo-300 rounded">file://</code>. Abre o Terminal na pasta do ficheiro e digita:
-                        </p>
-                        <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-[11px] font-mono text-emerald-400">
-                            php -S localhost:8000
-                        </div>
-                        <p class="text-xs text-slate-400">
-                            Depois acede a <code class="text-indigo-300">http://localhost:8000</code> no navegador.
-                        </p>
-                    </div>
-
-                </div>
-
-                <!-- BOTÃO DE TESTE DE FORÇA REQUISITION -->
-                <div class="p-5 rounded-2xl bg-indigo-950/40 border border-indigo-500/30 flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <div>
-                        <h4 class="font-bold text-sm text-white">Testar Permissão Agora</h4>
-                        <p class="text-xs text-slate-400">Clica para disparar a janela pop-up oficial de pedido de câmara do teu sistema.</p>
-                    </div>
-                    <button onclick="requestCameraExplicitly()" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs flex items-center gap-2 shadow-lg shadow-indigo-600/20 whitespace-nowrap">
-                        <i data-lucide="key" class="w-4 h-4"></i>
-                        <span>Solicitar Permissão Explicitamente</span>
+                    <button id="startGameBtn" onclick="toggleGameState()" disabled class="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-400 hover:to-purple-400 text-white font-bold text-sm shadow-lg shadow-indigo-500/25 transition-all disabled:opacity-50 disabled:grayscale">
+                        Iniciar Jogo
                     </button>
                 </div>
-
+                
+                <div id="gameOverMsg" class="hidden p-3 rounded-xl bg-rose-900/30 border border-rose-500/30 text-center text-sm font-medium text-rose-200">
+                    Fim do Jogo! Pontuação Final: <span id="finalScore" class="font-bold text-white">0</span>
+                </div>
             </div>
-        </section>
 
+        </div>
     </main>
 
-    <!-- NOTIFICAÇÃO TOAST CUSTOMIZADA -->
-    <div id="toast" class="fixed bottom-6 right-6 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
-        <div class="glass-panel border border-slate-700 text-slate-200 text-xs sm:text-sm px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3">
-            <i id="toastIcon" data-lucide="info" class="w-4 h-4 text-indigo-400"></i>
-            <span id="toastMessage">Mensagem de Notificação</span>
-        </div>
-    </div>
-
-    <!-- SCRIPT PRINCIPAL E LÓGICA DO SISTEMA -->
     <script>
-        // =========================================================================
-        // ESTADO GLOBAL & ELEMENTOS DOM
-        // =========================================================================
-        const webcam = document.getElementById('webcam');
-        const cameraCanvas = document.getElementById('cameraCanvas');
-        const ctxCamera = cameraCanvas.getContext('2d');
+        // Inicialização de Ícones
+        lucide.createIcons();
+
+        // Variáveis Globais DOM
+        const video = document.getElementById('webcam');
+        const canvas = document.getElementById('mainCanvas');
+        const ctx = canvas.getContext('2d');
+        const overlay = document.getElementById('camOverlay');
+        const toggleCamBtn = document.getElementById('toggleCamBtn');
+        const toggleCamText = document.getElementById('toggleCamText');
+        const aiStatus = document.getElementById('aiStatus');
         
-        const gameCanvas = document.getElementById('gameCanvas');
-        const ctxGame = gameCanvas.getContext('2d');
+        let stream = null;
+        let isCameraOn = false;
+        let requestAnimId = null;
+        let lastTime = 0;
+        let fps = 0;
 
-        // Badges e UI Status
-        const statusDot = document.getElementById('statusDot');
-        const statusText = document.getElementById('statusText');
-        const fpsCounter = document.getElementById('fpsCounter');
-        const fpsBadge = document.getElementById('fpsBadge');
-        const resText = document.getElementById('resText');
-        const resBadge = document.getElementById('resBadge');
-        const placeholderState = document.getElementById('placeholderState');
-        const quickToggleBtn = document.getElementById('quickToggleBtn');
-        const quickToggleText = document.getElementById('quickToggleText');
-        const capturePhotoBtn = document.getElementById('capturePhotoBtn');
-        const recordVideoBtn = document.getElementById('recordVideoBtn');
-        const recordVideoText = document.recordVideoText;
-
-        // Variaveis de Estado
-        let mediaStream = null;
-        let isCameraActive = false;
-        let isRecording = false;
-        let mediaRecorder = null;
-        let recordedChunks = [];
-        let recInterval = null;
-        let recSeconds = 0;
-
-        let isMirrored = true;
-        let activeARMask = 'none'; // 'none', 'crown', 'glasses', 'ears'
-
-        // Rastreio de FPS
-        let lastFrameTime = performance.now();
-        let frameCount = 0;
-        let currentFps = 0;
-
-        // MediaPipe FaceMesh & Rastreio de Cabeça
+        // Estado do Filtro
+        let activeEffect = 'normal';
+        let adjustments = { bright: 100, cont: 100, sat: 100 };
+        
+        // Estado AR
+        let activeAR = 'none';
+        let faceLandmarks = null;
+        let faceMeshLoaded = false;
         let faceMesh = null;
-        let headPosition = { x: 0.5, y: 0.5 }; // Normalizado 0 a 1
-        let isFaceDetected = false;
 
-        // Filtros Atuais
-        let filters = {
-            brightness: 100,
-            contrast: 100,
-            saturate: 100,
-            hue: 0,
-            blur: 0,
-            sepia: 0
-        };
+        // Estado do Jogo
+        let isGameActive = false;
+        let gameScore = 0;
+        let gameLives = 3;
+        let gameItems = [];
+        let playerX = 0; // Posição X mapeada do nariz
+        let playerY = 0; // Posição Y mapeada do nariz
 
-        // =========================================================================
-        // INICIALIZAÇÃO E EVENTOS
-        // =========================================================================
-        document.addEventListener('DOMContentLoaded', () => {
-            lucide.createIcons();
+        // Dimensões Virtuais do Jogo para manter consistência em redimensionamentos
+        const GAME_W = 1280;
+        const GAME_H = 720;
+        canvas.width = GAME_W;
+        canvas.height = GAME_H;
+
+        // ---------------------------------------------------------
+        // GESTÃO DE TABS
+        // ---------------------------------------------------------
+        function switchTab(tabId) {
+            document.querySelectorAll('.panel-section').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(el => {
+                el.classList.remove('bg-indigo-600', 'active', 'text-white', 'shadow-md');
+                el.classList.add('text-slate-400');
+            });
             
-            // Verificar protocolo file:// para aviso no Mac
-            if (window.location.protocol === 'file:') {
-                document.getElementById('protocolWarning').classList.remove('hidden');
+            document.getElementById(`panel-${tabId}`).classList.remove('hidden');
+            const btn = document.getElementById(`tab-${tabId}`);
+            btn.classList.add('bg-indigo-600', 'active', 'text-white', 'shadow-md');
+            btn.classList.remove('text-slate-400');
+
+            // Se sair do tab do jogo, pausar o jogo
+            if(tabId !== 'game' && isGameActive) {
+                toggleGameState(true); // força paragem
             }
-
-            // Inicializar Rastreio com MediaPipe FaceMesh
-            initFaceMesh();
-
-            // Ajustar tamanhos de canvas
-            resizeCanvases();
-            window.addEventListener('resize', resizeCanvases);
-
-            // Iniciar loop de renderização da câmara
-            requestAnimationFrame(renderCameraLoop);
-        });
-
-        function resizeCanvases() {
-            cameraCanvas.width = 1280;
-            cameraCanvas.height = 720;
-            gameCanvas.width = 1280;
-            gameCanvas.height = 720;
         }
 
-        // =========================================================================
-        // GESTÃO DA CÂMARA & PERMISSÕES
-        // =========================================================================
-        async function startCamera() {
+        // ---------------------------------------------------------
+        // SETUP DA CÂMARA E MEDIAPIPE (IA)
+        // ---------------------------------------------------------
+        async function initFaceMesh() {
             try {
-                const constraints = {
-                    video: {
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 },
-                        facingMode: 'user'
-                    },
-                    audio: false
-                };
-
-                mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-                webcam.srcObject = mediaStream;
-
-                await webcam.play();
-
-                isCameraActive = true;
-                placeholderState.classList.add('hidden');
+                faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
+                faceMesh.setOptions({
+                    maxNumFaces: 1,
+                    refineLandmarks: true,
+                    minDetectionConfidence: 0.6,
+                    minTrackingConfidence: 0.6
+                });
                 
-                // Atualizar Badges
-                statusDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse";
-                statusText.textContent = "Câmara Ativa";
-                statusText.className = "text-emerald-400 font-semibold";
-                fpsBadge.classList.remove('hidden');
-                fpsBadge.classList.add('flex');
-                resBadge.classList.remove('hidden');
-                resBadge.classList.add('flex');
-
-                quickToggleBtn.className = "px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-600/20 transition-all active:scale-95";
-                quickToggleText.textContent = "Desligar Câmara";
-
-                capturePhotoBtn.disabled = false;
-                recordVideoBtn.disabled = false;
-
-                resText.textContent = `${webcam.videoWidth || 1280} x ${webcam.videoHeight || 720}`;
-
-                showToast("Câmara ligada com sucesso!", "success");
+                faceMesh.onResults((results) => {
+                    if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+                        faceLandmarks = results.multiFaceLandmarks[0];
+                    } else {
+                        faceLandmarks = null;
+                    }
+                });
+                
+                // Forçar um aquecimento rápido enviando um canvas vazio
+                await faceMesh.send({image: document.createElement('canvas')});
+                
+                faceMeshLoaded = true;
+                aiStatus.innerHTML = '<i data-lucide="check-circle" class="w-3.5 h-3.5"></i> IA Pronta';
+                aiStatus.className = "flex items-center gap-1.5 text-emerald-400";
+                lucide.createIcons();
+                document.getElementById('startGameBtn').disabled = !isCameraOn; // Habilita o jogo se a câmara já estiver on
 
             } catch (err) {
-                console.error("Erro ao aceder à câmara:", err);
-                handleCameraError(err);
+                console.error("Erro no FaceMesh:", err);
+                aiStatus.innerHTML = '<i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i> IA Falhou';
+                aiStatus.className = "flex items-center gap-1.5 text-rose-400";
+                lucide.createIcons();
+            }
+        }
+
+        async function toggleCamera() {
+            if (isCameraOn) {
+                stopCamera();
+            } else {
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({
+                        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+                        audio: false
+                    });
+                    video.srcObject = stream;
+                    await video.play();
+                    
+                    isCameraOn = true;
+                    overlay.classList.add('hidden');
+                    document.getElementById('fpsBadge').classList.remove('hidden');
+                    document.getElementById('fpsBadge').classList.add('flex');
+                    document.getElementById('photoBtn').disabled = false;
+                    if(faceMeshLoaded) document.getElementById('startGameBtn').disabled = false;
+                    
+                    toggleCamBtn.className = "px-5 py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 font-semibold text-sm transition-all flex items-center gap-2";
+                    toggleCamText.textContent = "Desligar Câmara";
+
+                    requestAnimId = requestAnimationFrame(renderLoop);
+                } catch (err) {
+                    console.error(err);
+                    document.getElementById('macAlert').style.display = 'flex';
+                }
             }
         }
 
         function stopCamera() {
-            if (mediaStream) {
-                mediaStream.getTracks().forEach(track => track.stop());
-                mediaStream = null;
-            }
-
-            webcam.srcObject = null;
-            isCameraActive = false;
-
-            placeholderState.classList.remove('hidden');
-
-            statusDot.className = "w-2.5 h-2.5 rounded-full bg-slate-500";
-            statusText.textContent = "Desligada";
-            statusText.className = "text-slate-400 font-semibold";
-            fpsBadge.classList.add('hidden');
-            resBadge.classList.add('hidden');
-
-            quickToggleBtn.className = "px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20 transition-all active:scale-95";
-            quickToggleText.textContent = "Ligar Câmara";
-
-            capturePhotoBtn.disabled = true;
-            recordVideoBtn.disabled = true;
-
-            showToast("Câmara desligada.", "info");
+            if (stream) stream.getTracks().forEach(t => t.stop());
+            video.srcObject = null;
+            isCameraOn = false;
+            cancelAnimationFrame(requestAnimId);
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            overlay.classList.remove('hidden');
+            document.getElementById('fpsBadge').classList.add('hidden');
+            document.getElementById('photoBtn').disabled = true;
+            document.getElementById('startGameBtn').disabled = true;
+            if(isGameActive) toggleGameState(true);
+            
+            toggleCamBtn.className = "px-5 py-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 font-semibold text-sm transition-all flex items-center gap-2";
+            toggleCamText.textContent = "Ligar Câmara";
         }
 
-        function toggleCamera() {
-            if (isCameraActive) {
-                stopCamera();
-            } else {
-                startCamera();
-            }
-        }
+        // ---------------------------------------------------------
+        // LOOP PRINCIPAL DE RENDERIZAÇÃO
+        // ---------------------------------------------------------
+        async function renderLoop(timestamp) {
+            if (!isCameraOn) return;
 
-        function requestCameraExplicitly() {
-            startCamera();
-        }
-
-        function handleCameraError(err) {
-            let msg = "Não foi possível aceder à câmara.";
-            if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-                msg = "Permissão negada! Abre as Definições do Mac > Privacidade e Segurança > Câmara.";
-            } else if (err.name === 'NotFoundError') {
-                msg = "Nenhuma câmara foi detetada no dispositivo.";
-            }
-            showToast(msg, "error");
-            switchTab('help');
-        }
-
-        // =========================================================================
-        // LOOP DE RENDERIZAÇÃO DE VÍDEO E FILTROS (CANVAS)
-        // =========================================================================
-        function renderCameraLoop(timestamp) {
             // Calcular FPS
-            frameCount++;
-            if (timestamp - lastFrameTime >= 1000) {
-                currentFps = frameCount;
-                fpsCounter.textContent = `${currentFps} FPS`;
-                frameCount = 0;
-                lastFrameTime = timestamp;
+            const dt = timestamp - lastTime;
+            lastTime = timestamp;
+            fps = Math.round(1000 / dt);
+            if (timestamp % 30 < 1) document.getElementById('fpsCount').textContent = `${fps} FPS`;
+
+            // Alimentar IA assincronamente a cada 2 frames para performance
+            if (faceMeshLoaded && video.readyState >= 2 && Math.floor(timestamp)%2 === 0) {
+                faceMesh.send({image: video}).catch(e=>{});
             }
 
-            if (isCameraActive && webcam.readyState >= 2) {
-                ctxCamera.save();
-
-                // Limpar Canvas
-                ctxCamera.clearRect(0, 0, cameraCanvas.width, cameraCanvas.height);
-
-                // Aplicar Filtros CSS no Contexto do Canvas
-                ctxCamera.filter = `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturate}%) hue-rotate(${filters.hue}deg) blur(${filters.blur}px) sepia(${filters.sepia}%)`;
-
-                // Espelhar se necessário
-                if (isMirrored) {
-                    ctxCamera.translate(cameraCanvas.width, 0);
-                    ctxCamera.scale(-1, 1);
-                }
-
-                // Desenhar Vídeo no Canvas
-                ctxCamera.drawImage(webcam, 0, 0, cameraCanvas.width, cameraCanvas.height);
-                ctxCamera.restore();
-
-                // Desenhar Adereços AR se ativos
-                if (activeARMask !== 'none' && isFaceDetected) {
-                    drawARMask(ctxCamera, cameraCanvas.width, cameraCanvas.height);
-                }
-
-                // Enviar frame para o MediaPipe FaceMesh periodicamente
-                if (faceMesh && frameCount % 2 === 0) {
-                    faceMesh.send({ image: webcam }).catch(() => {});
-                }
-            }
-
-            requestAnimationFrame(renderCameraLoop);
-        }
-
-        // =========================================================================
-        // FILTROS & PRESETS
-        // =========================================================================
-        function updateFilters() {
-            filters.brightness = document.getElementById('sliderBrightness').value;
-            filters.contrast = document.getElementById('sliderContrast').value;
-            filters.saturate = document.getElementById('sliderSaturate').value;
-            filters.hue = document.getElementById('sliderHue').value;
-            filters.blur = document.getElementById('sliderBlur').value;
-            filters.sepia = document.getElementById('sliderSepia').value;
-
-            document.getElementById('valBrightness').textContent = `${filters.brightness}%`;
-            document.getElementById('valContrast').textContent = `${filters.contrast}%`;
-            document.getElementById('valSaturate').textContent = `${filters.saturate}%`;
-            document.getElementById('valHue').textContent = `${filters.hue}°`;
-            document.getElementById('valBlur').textContent = `${filters.blur}px`;
-            document.getElementById('valSepia').textContent = `${filters.sepia}%`;
-        }
-
-        function applyPreset(preset) {
-            resetSliders(false);
-            switch (preset) {
-                case 'cyberpunk':
-                    filters.saturate = 220;
-                    filters.hue = 290;
-                    filters.contrast = 130;
-                    break;
-                case 'vintage':
-                    filters.sepia = 60;
-                    filters.brightness = 110;
-                    filters.contrast = 90;
-                    break;
-                case 'noir':
-                    filters.saturate = 0;
-                    filters.contrast = 150;
-                    break;
-                case 'beauty':
-                    filters.brightness = 115;
-                    filters.blur = 0.5;
-                    filters.saturate = 120;
-                    break;
-                case 'matrix':
-                    filters.hue = 90;
-                    filters.saturate = 250;
-                    filters.contrast = 140;
-                    break;
-                case 'hdr':
-                    filters.contrast = 160;
-                    filters.saturate = 180;
-                    filters.brightness = 105;
-                    break;
-                case 'warm':
-                    filters.sepia = 30;
-                    filters.hue = 15;
-                    filters.saturate = 140;
-                    break;
-            }
-
-            // Atualizar os inputs
-            document.getElementById('sliderBrightness').value = filters.brightness;
-            document.getElementById('sliderContrast').value = filters.contrast;
-            document.getElementById('sliderSaturate').value = filters.saturate;
-            document.getElementById('sliderHue').value = filters.hue;
-            document.getElementById('sliderBlur').value = filters.blur;
-            document.getElementById('sliderSepia').value = filters.sepia;
-
-            updateFilters();
-            showToast(`Preset aplicado: ${preset.toUpperCase()}`, "info");
-        }
-
-        function resetSliders(showNotification = true) {
-            filters = { brightness: 100, contrast: 100, saturate: 100, hue: 0, blur: 0, sepia: 0 };
-            document.getElementById('sliderBrightness').value = 100;
-            document.getElementById('sliderContrast').value = 100;
-            document.getElementById('sliderSaturate').value = 100;
-            document.getElementById('sliderHue').value = 0;
-            document.getElementById('sliderBlur').value = 0;
-            document.getElementById('sliderSepia').value = 0;
-            updateFilters();
-            if (showNotification) showToast("Ajustes repostos para o padrão.", "info");
-        }
-
-        function setARMask(mask) {
-            activeARMask = mask;
-            showToast(`Adereço AR: ${mask.toUpperCase()}`, "info");
-        }
-
-        function toggleMirror() {
-            isMirrored = !isMirrored;
-            showToast(`Espelho: ${isMirrored ? 'Ativado' : 'Desativado'}`, "info");
-        }
-
-        function toggleGrid() {
-            const grid = document.getElementById('gridOverlay');
-            grid.classList.toggle('hidden');
-        }
-
-        function changeAspectRatio() {
-            const ratio = document.getElementById('aspectRatioSelect').value;
-            const container = document.getElementById('videoContainer');
-            
-            container.className = "relative w-full bg-slate-950 rounded-2xl overflow-hidden border border-slate-800 flex items-center justify-center shadow-inner transition-all duration-300 ";
-            
-            if (ratio === '16:9') container.classList.add('aspect-video');
-            else if (ratio === '4:3') container.classList.add('aspect-[4/3]');
-            else if (ratio === '1:1') container.classList.add('aspect-square');
-            else if (ratio === '9:16') container.classList.add('aspect-[9/16]', 'max-w-xs', 'mx-auto');
-        }
-
-        // =========================================================================
-        // MEDIAPIPE FACE MESH & DESENHO DE ADEREÇOS AR
-        // =========================================================================
-        function initFaceMesh() {
-            try {
-                faceMesh = new FaceMesh({
-                    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
-                });
-
-                faceMesh.setOptions({
-                    maxNumFaces: 1,
-                    refineLandmarks: true,
-                    minDetectionConfidence: 0.5,
-                    minTrackingConfidence: 0.5
-                });
-
-                faceMesh.onResults(onFaceResults);
-            } catch (e) {
-                console.warn("MediaPipe FaceMesh não foi carregado. A usar fallback de movimento.", e);
-            }
-        }
-
-        function onFaceResults(results) {
-            if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
-                isFaceDetected = true;
-                const landmarks = results.multiFaceLandmarks[0];
-
-                // Ponto do nariz (Landmark 1)
-                const nose = landmarks[1];
-                
-                // Atualizar posição normalizada da cabeça para o Jogo
-                headPosition.x = isMirrored ? (1 - nose.x) : nose.x;
-                headPosition.y = nose.y;
-            } else {
-                isFaceDetected = false;
-            }
-        }
-
-        function drawARMask(ctx, w, h) {
-            const x = headPosition.x * w;
-            const y = headPosition.y * h;
-
+            // LIMPAR O CANVAS
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.save();
-            ctx.font = "80px serif";
+
+            // ==========================================
+            // O SEGREDO DO ESPELHAMENTO PERFEITO (MIRRORING)
+            // ==========================================
+            // Invertemos horizontalmente o contexto. 
+            // Tudo desenhado daqui em diante será espelhado fisicamente.
+            ctx.translate(canvas.width, 0);
+            ctx.scale(-1, 1);
+
+            // APLICAR FILTROS BASE CSS (Brilho, Contraste)
+            ctx.filter = `brightness(${adjustments.bright}%) contrast(${adjustments.cont}%) saturate(${adjustments.sat}%)`;
+
+            // DESENHAR O VÍDEO
+            drawVideoWithEffects();
+
+            // DESENHAR AR (Máscaras Faciais) - Como o canvas está espelhado,
+            // desenhar nas coordenadas originais X (0 a 1) mapeadas, vai ser 
+            // perfeitamente refletido no ecrã e acompanhar a cabeça corretamente.
+            if (faceLandmarks) {
+                drawAR();
+            }
+
+            // DESENHAR O JOGO (Se Ativo)
+            if (isGameActive) {
+                updateAndDrawGame();
+            }
+
+            ctx.restore(); // Restaura o scale(-1, 1)
+
+            // Loop
+            requestAnimId = requestAnimationFrame(renderLoop);
+        }
+
+        // ---------------------------------------------------------
+        // EFEITOS CINEMATOGRÁFICOS E GLITCH
+        // ---------------------------------------------------------
+        function updateAdjustments() {
+            adjustments.bright = document.getElementById('slBright').value;
+            adjustments.cont = document.getElementById('slCont').value;
+            adjustments.sat = document.getElementById('slSat').value;
+            
+            document.getElementById('lblBright').textContent = `${adjustments.bright}%`;
+            document.getElementById('lblCont').textContent = `${adjustments.cont}%`;
+            document.getElementById('lblSat').textContent = `${adjustments.sat}%`;
+        }
+
+        function setBaseEffect(eff) {
+            activeEffect = eff;
+            // Remover estilos ativos dos botões
+            document.querySelectorAll('#panel-filters button').forEach(b => b.classList.remove('active', 'bg-white/10'));
+            event.currentTarget.classList.add('active', 'bg-white/10');
+
+            // Reset manual de adjustments
+            document.getElementById('slBright').value = 100;
+            document.getElementById('slCont').value = 100;
+            document.getElementById('slSat').value = 100;
+
+            if(eff === 'cinematic') {
+                document.getElementById('slCont').value = 120;
+                document.getElementById('slSat').value = 80;
+            } else if (eff === 'cyberpunk') {
+                document.getElementById('slCont').value = 130;
+                document.getElementById('slSat').value = 180;
+            }
+            updateAdjustments();
+        }
+
+        function drawVideoWithEffects() {
+            const w = canvas.width;
+            const h = canvas.height;
+
+            if (activeEffect === 'glitch') {
+                // Efeito de Aberração Cromática Manual
+                ctx.globalAlpha = 0.5;
+                
+                // Canal Vermelho Shift Left
+                ctx.filter += " hue-rotate(90deg)";
+                ctx.drawImage(video, 10, 0, w, h);
+                
+                // Canal Ciano Shift Right
+                ctx.filter = ctx.filter.replace("hue-rotate(90deg)", "hue-rotate(-90deg)");
+                ctx.drawImage(video, -10, 0, w, h);
+                
+                ctx.globalAlpha = 1.0;
+                ctx.filter = `brightness(${adjustments.bright}%) contrast(${adjustments.cont}%) saturate(${adjustments.sat}%)`;
+                
+                // Linhas de Scan
+                ctx.fillStyle = 'rgba(0,0,0,0.1)';
+                for(let i=0; i<h; i+=4) { ctx.fillRect(0, i, w, 1); }
+            } 
+            else if (activeEffect === 'vhs') {
+                ctx.filter += " sepia(30%) blur(1px)";
+                ctx.drawImage(video, 0, 0, w, h);
+                // Noise texturing and tracking lines
+                if(Math.random() > 0.8) {
+                    const lineY = Math.random() * h;
+                    ctx.fillStyle = 'rgba(255,255,255,0.2)';
+                    ctx.fillRect(0, lineY, w, Math.random() * 20);
+                }
+            } 
+            else {
+                // Desenho Normal
+                ctx.drawImage(video, 0, 0, w, h);
+            }
+
+            // Overlay Cinematic Letterbox
+            if(activeEffect === 'cinematic') {
+                ctx.fillStyle = '#000';
+                ctx.fillRect(0, 0, w, h * 0.12);
+                ctx.fillRect(0, h - (h * 0.12), w, h * 0.12);
+            }
+        }
+
+        // ---------------------------------------------------------
+        // REALIDADE AUMENTADA (AR MASKS)
+        // ---------------------------------------------------------
+        function setAR(type) {
+            activeAR = type;
+            document.querySelectorAll('#panel-ar button').forEach(b => b.classList.remove('active', 'border-indigo-500'));
+            event.currentTarget.classList.add('active', 'border-indigo-500');
+        }
+
+        function drawAR() {
+            if (activeAR === 'none' || !faceLandmarks) return;
+            
+            const w = canvas.width;
+            const h = canvas.height;
+            
+            ctx.save();
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
 
-            if (activeARMask === 'crown') {
-                ctx.fillText("👑", x, y - 120);
-            } else if (activeARMask === 'glasses') {
-                ctx.fillText("🕶️", x, y - 20);
-            } else if (activeARMask === 'ears') {
-                ctx.fillText("🐱", x, y - 100);
+            if (activeAR === 'thug') {
+                // Óculos: Usar o olho esquerdo (33) e direito (263)
+                const leftEye = faceLandmarks[33];
+                const rightEye = faceLandmarks[263];
+                
+                const eyeCenterX = ((leftEye.x + rightEye.x) / 2) * w;
+                const eyeCenterY = ((leftEye.y + rightEye.y) / 2) * h;
+                
+                // Calcular ângulo de inclinação da cabeça
+                const dx = (rightEye.x - leftEye.x) * w;
+                const dy = (rightEye.y - leftEye.y) * h;
+                const angle = Math.atan2(dy, dx);
+                
+                // Distância entre os olhos para escalar o tamanho dos óculos
+                const dist = Math.hypot(dx, dy);
+                const fontSize = dist * 2.5; // Escala do emoji
+
+                ctx.translate(eyeCenterX, eyeCenterY);
+                ctx.rotate(angle);
+                ctx.font = `${fontSize}px Arial`;
+                // Como o canvas está espelhado, os gráficos e texto ficam invertidos.
+                // Mas para emojis simétricos como óculos, não há problema, ou podemos refletir o texto.
+                ctx.scale(-1, 1); 
+                ctx.fillText("🕶️", 0, 0);
+            } 
+            else if (activeAR === 'dog') {
+                // Nariz (1)
+                const nose = faceLandmarks[1];
+                const noseX = nose.x * w;
+                const noseY = nose.y * h;
+                
+                // Testa (10)
+                const top = faceLandmarks[10];
+                const topX = top.x * w;
+                const topY = top.y * h;
+
+                // Tamanho baseado no rosto (distância nariz à testa)
+                const faceSize = Math.hypot((top.x-nose.x)*w, (top.y-nose.y)*h);
+
+                // Desenhar Nariz
+                ctx.save();
+                ctx.translate(noseX, noseY);
+                ctx.scale(-1, 1);
+                ctx.font = `${faceSize * 0.6}px Arial`;
+                ctx.fillText("🐽", 0, 0);
+                ctx.restore();
+
+                // Desenhar Orelhas (um pouco acima da testa)
+                ctx.save();
+                ctx.translate(topX, topY - (faceSize * 0.4));
+                ctx.scale(-1, 1);
+                ctx.font = `${faceSize * 1.5}px Arial`;
+                ctx.fillText("🐶", 0, 0); // Emoji de cara de cão serve como máscara de topo
+                ctx.restore();
+            }
+            else if (activeAR === 'crown') {
+                const top = faceLandmarks[10]; // Centro superior da testa
+                
+                ctx.translate(top.x * w, top.y * h - 80);
+                ctx.scale(-1, 1);
+                ctx.font = "120px Arial";
+                ctx.fillText("👑", 0, 0);
             }
 
             ctx.restore();
         }
 
-        // =========================================================================
-        // CAPTURA DE FOTOS E GRAVAÇÃO DE VÍDEO
-        // =========================================================================
-        function triggerPhotoCapture() {
-            const timerSec = parseInt(document.getElementById('timerSelect').value);
-            
-            if (timerSec === 0) {
-                takePhoto();
-            } else {
-                const overlay = document.getElementById('countdownOverlay');
-                const numDisplay = document.getElementById('countdownNumber');
-                overlay.classList.remove('hidden');
+        // ---------------------------------------------------------
+        // JOGO TIKTOK: LÓGICA E FÍSICA
+        // ---------------------------------------------------------
+        function toggleGameState(forceStop = false) {
+            const btn = document.getElementById('startGameBtn');
+            const hud = document.getElementById('gameHud');
+            const overMsg = document.getElementById('gameOverMsg');
 
-                let count = timerSec;
-                numDisplay.textContent = count;
-                playBeepSound();
-
-                const timer = setInterval(() => {
-                    count--;
-                    if (count > 0) {
-                        numDisplay.textContent = count;
-                        playBeepSound();
-                    } else {
-                        clearInterval(timer);
-                        overlay.classList.add('hidden');
-                        takePhoto();
-                    }
-                }, 1000);
-            }
-        }
-
-        function takePhoto() {
-            playShutterSound();
-
-            const dataUrl = cameraCanvas.toDataURL('image/png');
-            addMediaToGallery(dataUrl, 'photo');
-            showToast("Foto capturada com sucesso!", "success");
-        }
-
-        function toggleVideoRecording() {
-            if (!isRecording) {
-                startRecording();
-            } else {
-                stopRecording();
-            }
-        }
-
-        function startRecording() {
-            recordedChunks = [];
-            const stream = cameraCanvas.captureStream(30);
-
-            try {
-                mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
-            } catch (e) {
-                mediaRecorder = new MediaRecorder(stream);
-            }
-
-            mediaRecorder.ondataavailable = (e) => {
-                if (e.data.size > 0) recordedChunks.push(e.data);
-            };
-
-            mediaRecorder.onstop = () => {
-                const blob = new Blob(recordedChunks, { type: 'video/webm' });
-                const url = URL.createObjectURL(blob);
-                addMediaToGallery(url, 'video');
-                showToast("Vídeo gravado e adicionado à galeria!", "success");
-            };
-
-            mediaRecorder.start();
-            isRecording = true;
-
-            // Timer REC
-            recSeconds = 0;
-            const recBadge = document.getElementById('recBadge');
-            const recTimer = document.getElementById('recTimer');
-            recBadge.classList.remove('hidden');
-            recBadge.classList.add('flex');
-
-            recInterval = setInterval(() => {
-                recSeconds++;
-                const mins = String(Math.floor(recSeconds / 60)).padStart(2, '0');
-                const secs = String(recSeconds % 60).padStart(2, '0');
-                recTimer.textContent = `REC ${mins}:${secs}`;
-            }, 1000);
-
-            document.getElementById('recordVideoText').textContent = "Parar Gravação";
-            showToast("A gravar vídeo...", "info");
-        }
-
-        function stopRecording() {
-            if (mediaRecorder) {
-                mediaRecorder.stop();
-            }
-            isRecording = false;
-
-            clearInterval(recInterval);
-            const recBadge = document.getElementById('recBadge');
-            recBadge.classList.add('hidden');
-
-            document.getElementById('recordVideoText').textContent = "Gravar Vídeo";
-        }
-
-        function addMediaToGallery(url, type) {
-            const galleryGrid = document.getElementById('galleryGrid');
-            
-            // Remover mensagem vazia inicial
-            if (galleryGrid.querySelector('div.col-span-full')) {
-                galleryGrid.innerHTML = '';
-            }
-
-            const card = document.createElement('div');
-            card.className = "glass-card p-2 rounded-xl border border-slate-700 relative group overflow-hidden flex flex-col justify-between";
-
-            if (type === 'photo') {
-                card.innerHTML = `
-                    <img src="${url}" class="w-full h-24 object-cover rounded-lg mb-2">
-                    <a href="${url}" download="foto-studio-${Date.now()}.png" class="w-full py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center justify-center gap-1">
-                        <i data-lucide="download" class="w-3.5 h-3.5"></i> Descarregar
-                    </a>
-                `;
-            } else {
-                card.innerHTML = `
-                    <video src="${url}" controls class="w-full h-24 object-cover rounded-lg mb-2"></video>
-                    <a href="${url}" download="video-studio-${Date.now()}.webm" class="w-full py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold flex items-center justify-center gap-1">
-                        <i data-lucide="download" class="w-3.5 h-3.5"></i> Descarregar
-                    </a>
-                `;
-            }
-
-            galleryGrid.prepend(card);
-            lucide.createIcons();
-
-            const count = galleryGrid.children.length;
-            document.getElementById('galleryCount').textContent = `${count} ficheiros`;
-        }
-
-        // =========================================================================
-        // JOGO TIKTOK: HEAD TRACKING (DESAFIO DAS ESTRELAS)
-        // =========================================================================
-        let gameActive = false;
-        let score = 0;
-        let gameTimeLeft = 30;
-        let gameTimerInterval = null;
-        let gameItems = []; // Estrelas e Bombas
-        let highScore = localStorage.getItem('cam_high_score') || 0;
-
-        document.getElementById('gameHighScore').textContent = highScore;
-
-        function startGame() {
-            if (!isCameraActive) {
-                startCamera();
-            }
-
-            score = 0;
-            gameTimeLeft = 30;
-            gameItems = [];
-            gameActive = true;
-
-            document.getElementById('gameScore').textContent = score;
-            document.getElementById('gameTimer').textContent = `${gameTimeLeft}s`;
-            document.getElementById('gameOverlay').classList.add('hidden');
-
-            // Timer do Jogo
-            clearInterval(gameTimerInterval);
-            gameTimerInterval = setInterval(() => {
-                gameTimeLeft--;
-                document.getElementById('gameTimer').textContent = `${gameTimeLeft}s`;
-
-                if (gameTimeLeft <= 0) {
-                    endGame();
+            if (isGameActive || forceStop) {
+                // Parar
+                isGameActive = false;
+                hud.classList.add('hidden');
+                btn.textContent = "Iniciar Novo Jogo";
+                btn.classList.replace('from-rose-500', 'from-indigo-500');
+                btn.classList.replace('to-orange-500', 'to-purple-500');
+                if(!forceStop && gameLives <= 0) {
+                    overMsg.classList.remove('hidden');
+                    document.getElementById('finalScore').textContent = gameScore;
                 }
-            }, 1000);
-
-            requestAnimationFrame(gameLoop);
+            } else {
+                // Iniciar
+                isGameActive = true;
+                gameScore = 0;
+                gameLives = 3;
+                gameItems = [];
+                updateGameHud();
+                hud.classList.remove('hidden');
+                overMsg.classList.add('hidden');
+                
+                btn.textContent = "Parar Jogo";
+                btn.classList.replace('from-indigo-500', 'from-rose-500');
+                btn.classList.replace('to-purple-500', 'to-orange-500');
+            }
         }
 
-        function endGame() {
-            gameActive = false;
-            clearInterval(gameTimerInterval);
-
-            if (score > highScore) {
-                highScore = score;
-                localStorage.setItem('cam_high_score', highScore);
-                document.getElementById('gameHighScore').textContent = highScore;
-            }
-
-            document.getElementById('gameOverlayTitle').textContent = `Fim do Jogo! Pontuação: ${score}`;
-            document.getElementById('gameOverlaySub').textContent = score >= 15 ? "Excelente agilidade de cabeça! 🔥" : "Bom treino! Tenta de novo para bater o recorde.";
-            document.getElementById('gameOverlay').classList.remove('hidden');
+        function updateGameHud() {
+            document.getElementById('gameScore').textContent = gameScore;
+            let hearts = "";
+            for(let i=0; i<3; i++) hearts += i < gameLives ? "❤️" : "🖤";
+            document.getElementById('gameLives').textContent = hearts;
         }
 
-        function gameLoop() {
-            if (!gameActive) return;
+        function spawnFloatingText(text, x, y, colorClass) {
+            // Este texto tem de ser desenhado no DOM porque o Canvas está espelhado 
+            // e os textos normais ficariam ao contrário.
+            const container = document.getElementById('animContainer');
+            const el = document.createElement('div');
+            el.textContent = text;
+            // Coordenadas têm de ser convertidas da escala do canvas (1280x720) para os pixeis da Div (que usa object-fit).
+            // Para simplificar: mostramos no centro ou perto.
+            el.className = `score-anim text-2xl ${colorClass}`;
+            
+            // X precisa ser revertido visualmente porque o DOM não está espelhado, mas a lógica sim.
+            const domW = container.clientWidth;
+            const domH = container.clientHeight;
+            // landmark.x já representa 0 (esquerda do canvas) a 1. Na ecrã espelhado, landmark.x=0 é o ecrã à esquerda.
+            const leftPerc = (1 - (x / GAME_W)) * 100; // Inverte para alinhar com o DOM
+            const topPerc = (y / GAME_H) * 100;
 
-            // Limpar Canvas do Jogo
-            ctxGame.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
+            el.style.left = `calc(${leftPerc}% - 20px)`;
+            el.style.top = `${topPerc}%`;
+            container.appendChild(el);
+            
+            setTimeout(() => el.remove(), 800);
+        }
 
-            // Desenhamos a câmara no fundo do jogo
-            if (isCameraActive && webcam.readyState >= 2) {
-                ctxGame.save();
-                ctxGame.translate(gameCanvas.width, 0);
-                ctxGame.scale(-1, 1);
-                ctxGame.drawImage(webcam, 0, 0, gameCanvas.width, gameCanvas.height);
-                ctxGame.restore();
+        function updateAndDrawGame() {
+            const w = canvas.width;
+            const h = canvas.height;
+            const radius = 60; // Raio de captura da cabeça
+
+            // Atualizar Posição do Jogador (Nariz)
+            if (faceLandmarks) {
+                const nose = faceLandmarks[1];
+                playerX = nose.x * w;
+                playerY = nose.y * h;
             }
 
-            // Posição do Jogador (Cabeça)
-            const playerX = headPosition.x * gameCanvas.width;
-            const playerY = headPosition.y * gameCanvas.height;
-
-            // Desenhar Jogador (Cesto / Avatar)
-            ctxGame.save();
-            ctxGame.font = "60px serif";
-            ctxGame.textAlign = "center";
-            ctxGame.textBaseline = "middle";
-            ctxGame.fillText("👑", playerX, playerY - 40);
-            ctxGame.restore();
-
-            // Gerar novos itens aleatórios (Estrelas & Bombas)
-            if (Math.random() < 0.05) {
+            // Gerar Items Aleatórios
+            if (Math.random() < 0.03) { // 3% de chance por frame de criar item
+                const isBomb = Math.random() > 0.7; // 30% bombas
                 gameItems.push({
-                    x: Math.random() * (gameCanvas.width - 100) + 50,
+                    x: Math.random() * (w - 100) + 50,
                     y: -50,
-                    speed: Math.random() * 3 + 3,
-                    type: Math.random() < 0.75 ? 'star' : 'bomb'
+                    speed: (Math.random() * 4) + 4 + (gameScore * 0.05), // fica mais rápido com a pontuação
+                    type: isBomb ? 'bomb' : 'star',
+                    size: 40
                 });
             }
 
-            // Atualizar e Desenhar Itens
+            // Desenhar Jogador (Cesto / Avatar) - Lembrete: Contexto está espelhado!
+            ctx.save();
+            ctx.translate(playerX, playerY - 30);
+            ctx.scale(-1, 1); // Desfazer o espelho para o emoji ficar legível
+            
+            // Círculo visual de hitbox
+            ctx.beginPath();
+            ctx.arc(0, 0, radius, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(99, 102, 241, 0.2)';
+            ctx.fill();
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = 'rgba(99, 102, 241, 0.6)';
+            ctx.stroke();
+
+            ctx.font = "50px Arial";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText("🧺", 0, 0); // Cesto
+            ctx.restore();
+
+            // Atualizar e Desenhar Objetos que Caem
             for (let i = gameItems.length - 1; i >= 0; i--) {
-                const item = gameItems[i];
+                let item = gameItems[i];
                 item.y += item.speed;
 
-                ctxGame.save();
-                ctxGame.font = "45px serif";
-                ctxGame.textAlign = "center";
-                ctxGame.textBaseline = "middle";
-                ctxGame.fillText(item.type === 'star' ? "🌟" : "💣", item.x, item.y);
-                ctxGame.restore();
+                // Desenhar
+                ctx.save();
+                ctx.translate(item.x, item.y);
+                ctx.scale(-1, 1);
+                ctx.font = `${item.size}px Arial`;
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText(item.type === 'star' ? "⭐" : "💣", 0, 0);
+                ctx.restore();
 
-                // Detetar Colisão com a Cabeça do Jogador
-                const dist = Math.hypot(item.x - playerX, item.y - (playerY - 40));
-                if (dist < 60) {
+                // Deteção de Colisão Circular (AABB adaptado)
+                const dx = playerX - item.x;
+                const dy = (playerY - 30) - item.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist < radius + (item.size/2)) {
+                    // COLISÃO!
                     if (item.type === 'star') {
-                        score += 10;
-                        playBeepSound(800, 0.1);
+                        gameScore += 10;
+                        spawnFloatingText("+10", playerX, playerY, "text-emerald-400");
                     } else {
-                        score = Math.max(0, score - 15);
-                        playBeepSound(200, 0.2);
+                        gameLives -= 1;
+                        spawnFloatingText("BOOM!", playerX, playerY, "text-rose-500");
+                        
+                        // Screen Shake Effect no DOM (Opcional, mas divertido)
+                        document.getElementById('canvasWrapper').classList.add('animate-ping', 'duration-75');
+                        setTimeout(() => document.getElementById('canvasWrapper').classList.remove('animate-ping', 'duration-75'), 150);
                     }
-                    document.getElementById('gameScore').textContent = score;
+                    updateGameHud();
                     gameItems.splice(i, 1);
+
+                    // Fim de Jogo?
+                    if (gameLives <= 0) {
+                        toggleGameState(); // Para o jogo
+                    }
                     continue;
                 }
 
-                // Remover itens que saíram do ecrã
-                if (item.y > gameCanvas.height + 50) {
+                // Remover se sair do ecrã
+                if (item.y > h + 100) {
                     gameItems.splice(i, 1);
                 }
             }
-
-            requestAnimationFrame(gameLoop);
         }
 
-        // =========================================================================
-        // SINTETIZADOR DE ÁUDIO WEB (SEM ASSETS EXTERNOS)
-        // =========================================================================
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
-        function playBeepSound(freq = 600, duration = 0.08) {
-            try {
-                if (audioCtx.state === 'suspended') audioCtx.resume();
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.frequency.value = freq;
-                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                osc.start();
-                osc.stop(audioCtx.currentTime + duration);
-            } catch (e) {}
+        // ---------------------------------------------------------
+        // UTILITÁRIOS: CAPTURA DE FOTO
+        // ---------------------------------------------------------
+        function takePhoto() {
+            if (!isCameraOn) return;
+            const link = document.getElementById('downloadLink');
+            
+            // O Canvas já tem tudo renderizado (Vídeo + Filtros + AR)
+            // Extrair como PNG
+            link.href = canvas.toDataURL('image/png');
+            link.download = `StudioPro_${new Date().getTime()}.png`;
+            link.click();
+            
+            // Efeito de Flash (Flash na div pai)
+            const cw = document.getElementById('canvasWrapper');
+            const flash = document.createElement('div');
+            flash.className = "absolute inset-0 bg-white z-50 opacity-100 transition-opacity duration-500 pointer-events-none";
+            cw.appendChild(flash);
+            setTimeout(() => { flash.style.opacity = '0'; }, 50);
+            setTimeout(() => { flash.remove(); }, 500);
         }
 
-        function playShutterSound() {
-            playBeepSound(1200, 0.15);
-        }
+        // Iniciar inicialização dos módulos ao carregar
+        window.addEventListener('load', () => {
+            initFaceMesh();
+        });
 
-        // =========================================================================
-        // NAVEGAÇÃO ENTRE SEPARADORES (TABS)
-        // =========================================================================
-        function switchTab(tab) {
-            document.getElementById('tabCamera').classList.add('hidden');
-            document.getElementById('tabGame').classList.add('hidden');
-            document.getElementById('tabHelp').classList.add('hidden');
-
-            document.getElementById('tabCameraBtn').className = "px-3 sm:px-4 py-2 rounded-lg flex items-center gap-2 transition-all text-slate-400 hover:text-white";
-            document.getElementById('tabGameBtn').className = "px-3 sm:px-4 py-2 rounded-lg flex items-center gap-2 transition-all text-slate-400 hover:text-white";
-            document.getElementById('tabHelpBtn').className = "px-3 sm:px-4 py-2 rounded-lg flex items-center gap-2 transition-all text-slate-400 hover:text-white";
-
-            if (tab === 'camera') {
-                document.getElementById('tabCamera').classList.remove('hidden');
-                document.getElementById('tabCameraBtn').className = "px-3 sm:px-4 py-2 rounded-lg flex items-center gap-2 transition-all bg-indigo-600 text-white shadow-md";
-            } else if (tab === 'game') {
-                document.getElementById('tabGame').classList.remove('hidden');
-                document.getElementById('tabGameBtn').className = "px-3 sm:px-4 py-2 rounded-lg flex items-center gap-2 transition-all bg-indigo-600 text-white shadow-md";
-            } else if (tab === 'help') {
-                document.getElementById('tabHelp').classList.remove('hidden');
-                document.getElementById('tabHelpBtn').className = "px-3 sm:px-4 py-2 rounded-lg flex items-center gap-2 transition-all bg-indigo-600 text-white shadow-md";
-            }
-        }
-
-        // =========================================================================
-        // TOAST NOTIFICAÇÃO
-        // =========================================================================
-        function showToast(msg, type = 'info') {
-            const toast = document.getElementById('toast');
-            const toastMessage = document.getElementById('toastMessage');
-            const toastIcon = document.getElementById('toastIcon');
-
-            toastMessage.textContent = msg;
-
-            if (type === 'success') {
-                toastIcon.setAttribute('data-lucide', 'check-circle');
-                toastIcon.className = "w-4 h-4 text-emerald-400";
-            } else if (type === 'error') {
-                toastIcon.setAttribute('data-lucide', 'alert-triangle');
-                toastIcon.className = "w-4 h-4 text-rose-400";
-            } else {
-                toastIcon.setAttribute('data-lucide', 'info');
-                toastIcon.className = "w-4 h-4 text-indigo-400";
-            }
-
-            lucide.createIcons();
-
-            toast.classList.remove('translate-y-20', 'opacity-0');
-            toast.classList.add('translate-y-0', 'opacity-100');
-
-            setTimeout(() => {
-                toast.classList.remove('translate-y-0', 'opacity-100');
-                toast.classList.add('translate-y-20', 'opacity-0');
-            }, 3500);
-        }
     </script>
 </body>
 </html>
