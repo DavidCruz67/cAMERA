@@ -2,881 +2,1013 @@
 <html lang="pt">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Câmara Pro & AR Face Game</title>
-    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Câmara Studio Ultra | AR & Jogos</title>
+
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    
-    <!-- Google Fonts: Inter & Space Grotesk (Para o Jogo/Títulos) -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
-    
-    <!-- MediaPipe Face Mesh -->
+
+    <!-- Google MediaPipe Face Mesh -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
-    
+
+    <!-- Fontes -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@700;800&display=swap" rel="stylesheet">
+
     <style>
         :root {
-            --glass-bg: rgba(17, 24, 39, 0.7);
-            --glass-border: rgba(255, 255, 255, 0.08);
-            --accent: #6366f1; /* Indigo 500 */
+            --glass-bg: rgba(15, 23, 42, 0.4);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --glass-blur: blur(16px);
+            --accent: #ec4899; /* Pink 500 */
         }
-        
+
         body {
             font-family: 'Inter', sans-serif;
-            background: radial-gradient(circle at top right, #1e1b4b 0%, #0f172a 40%, #020617 100%);
-            color: #f8fafc;
-            min-height: 100vh;
-            overflow-x: hidden;
+            background-color: #000;
+            color: #fff;
+            overflow: hidden; /* Ecrã inteiro, sem scroll */
+            touch-action: none;
         }
 
-        h1, h2, h3, .font-game {
-            font-family: 'Space Grotesk', sans-serif;
-        }
+        .font-display { font-family: 'Outfit', sans-serif; }
 
         /* Glassmorphism Utilities */
-        .glass-panel {
+        .glass {
             background: var(--glass-bg);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
             border: 1px solid var(--glass-border);
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
         }
-        
-        .glass-button {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+
+        .glass-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.15);
             transition: all 0.2s ease;
         }
-        .glass-button:hover:not(:disabled) {
-            background: rgba(255, 255, 255, 0.1);
-            border-color: var(--accent);
-            transform: translateY(-2px);
+        .glass-btn:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.2);
+            transform: scale(1.05);
         }
-        .glass-button.active {
-            background: rgba(99, 102, 241, 0.2);
-            border-color: var(--accent);
-            color: #c7d2fe;
-        }
-
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: #475569; }
-
-        /* Range Sliders */
-        input[type=range] {
-            -webkit-appearance: none;
-            width: 100%;
-            background: transparent;
-            height: 6px;
-            border-radius: 3px;
-        }
-        input[type=range]::-webkit-slider-runnable-track {
-            width: 100%;
-            height: 6px;
-            background: rgba(255,255,255,0.1);
-            border-radius: 3px;
-        }
-        input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            height: 16px;
-            width: 16px;
-            border-radius: 50%;
+        .glass-btn.active {
             background: var(--accent);
-            cursor: pointer;
-            margin-top: -5px;
-            box-shadow: 0 0 10px rgba(99, 102, 241, 0.6);
-            transition: transform 0.1s;
-        }
-        input[type=range]::-webkit-slider-thumb:hover {
-            transform: scale(1.2);
+            border-color: #f472b6;
+            box-shadow: 0 0 15px rgba(236, 72, 153, 0.5);
         }
 
-        /* Loading Spinner */
-        .loader {
-            border: 3px solid rgba(255,255,255,0.1);
-            border-left-color: var(--accent);
-            border-radius: 50%;
-            width: 24px;
-            height: 24px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); border-radius: 4px; }
 
-        /* Game Animations */
-        @keyframes floatScore {
-            0% { opacity: 1; transform: translateY(0) scale(1); }
-            100% { opacity: 0; transform: translateY(-40px) scale(1.5); }
+        /* Sliders */
+        input[type=range] {
+            -webkit-appearance: none; width: 100%; background: transparent; height: 4px; border-radius: 2px;
         }
-        .score-anim {
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px; }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: #fff; margin-top: -6px; box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
+
+        /* Recording Animation */
+        .recording-pulse { animation: pulseRec 1.5s infinite; }
+        @keyframes pulseRec { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+
+        /* Game Text Animation */
+        .float-text { position: absolute; animation: floatUp 1s ease-out forwards; pointer-events: none; font-weight: bold; text-shadow: 0 2px 4px #000; }
+        @keyframes floatUp { 0% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-50px) scale(1.5); } }
+
+        /* Main Canvas Setup */
+        #mainCanvas {
             position: absolute;
-            animation: floatScore 0.8s ease-out forwards;
-            pointer-events: none;
-            font-weight: bold;
-            text-shadow: 0 2px 10px rgba(0,0,0,0.8);
+            top: 0; left: 0; width: 100%; height: 100%;
+            object-fit: cover; z-index: 1;
         }
+        
+        #uiLayer { position: absolute; inset: 0; z-index: 10; pointer-events: none; }
+        .pointer-events-auto { pointer-events: auto; }
     </style>
 </head>
-<body class="flex flex-col">
+<body>
 
-    <!-- HEADER -->
-    <header class="glass-panel sticky top-0 z-50 px-6 py-4 border-b-0 rounded-b-2xl mx-2 mt-2">
-        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+    <!-- VÍDEO FONTE ESCONDIDO -->
+    <video id="webcam" class="hidden" autoplay playsinline></video>
+    
+    <!-- CANVAS PRINCIPAL (RENDERIZAÇÃO) -->
+    <canvas id="mainCanvas"></canvas>
+
+    <!-- CAMADA DE INTERFACE GLOBAL -->
+    <div id="uiLayer" class="flex justify-between p-4 h-full">
+
+        <!-- BARRA LATERAL ESQUERDA: Filtros & Máscaras -->
+        <aside class="glass rounded-3xl w-72 h-full flex flex-col pointer-events-auto overflow-hidden shadow-2xl transform transition-transform -translate-x-full md:translate-x-0" id="leftSidebar">
+            <div class="flex p-2 gap-2 border-b border-white/10">
+                <button onclick="switchTab('left', 'filters')" id="tab-filters" class="flex-1 py-2 text-sm font-semibold rounded-xl glass-btn active">Filtros</button>
+                <button onclick="switchTab('left', 'masks')" id="tab-masks" class="flex-1 py-2 text-sm font-semibold rounded-xl glass-btn">Máscaras</button>
+            </div>
             
-            <div class="flex items-center gap-3">
-                <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-                    <i data-lucide="aperture" class="w-7 h-7 text-white"></i>
+            <div class="p-4 overflow-y-auto flex-1">
+                <!-- Filtros -->
+                <div id="panel-filters" class="space-y-3">
+                    <h3 class="text-xs text-gray-400 uppercase tracking-widest mb-2">Efeitos Visuais</h3>
+                    <button onclick="setFilter('none')" class="w-full glass-btn p-3 rounded-xl text-left text-sm flex items-center gap-3 active"><i data-lucide="image"></i> Normal</button>
+                    <button onclick="setFilter('glitch')" class="w-full glass-btn p-3 rounded-xl text-left text-sm flex items-center gap-3 text-cyan-300"><i data-lucide="zap"></i> Cyber Glitch</button>
+                    <button onclick="setFilter('matrix')" class="w-full glass-btn p-3 rounded-xl text-left text-sm flex items-center gap-3 text-green-400"><i data-lucide="binary"></i> Matrix Hacker</button>
+                    <button onclick="setFilter('sepia')" class="w-full glass-btn p-3 rounded-xl text-left text-sm flex items-center gap-3 text-yellow-200"><i data-lucide="film"></i> Sépia Vintage</button>
+                    <button onclick="setFilter('pixel')" class="w-full glass-btn p-3 rounded-xl text-left text-sm flex items-center gap-3 text-purple-300"><i data-lucide="layout-grid"></i> Pixel Retro</button>
+                    <button onclick="setFilter('bw')" class="w-full glass-btn p-3 rounded-xl text-left text-sm flex items-center gap-3 text-gray-300"><i data-lucide="aperture"></i> Noir (P&B)</button>
                 </div>
-                <div>
-                    <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-indigo-300">Câmara Studio Pro</h1>
-                    <div class="flex items-center gap-2 text-xs font-medium text-slate-400 mt-0.5">
-                        <span id="aiStatus" class="flex items-center gap-1.5 text-amber-400">
-                            <div class="loader w-3 h-3 border-[2px]"></div> IA a carregar...
-                        </span>
-                    </div>
+
+                <!-- Máscaras AR -->
+                <div id="panel-masks" class="space-y-3 hidden">
+                    <h3 class="text-xs text-gray-400 uppercase tracking-widest mb-2">Realidade Aumentada</h3>
+                    <button onclick="setMask('none')" class="w-full glass-btn p-3 rounded-xl text-left text-sm flex justify-between active"><span>🚫 Remover</span></button>
+                    <button onclick="setMask('crown')" class="w-full glass-btn p-3 rounded-xl text-left text-sm flex justify-between text-yellow-300"><span>👑 Coroa Real</span></button>
+                    <button onclick="setMask('cat')" class="w-full glass-btn p-3 rounded-xl text-left text-sm flex justify-between text-orange-300"><span>🐱 Gato Kawaii</span></button>
+                    <button onclick="setMask('glasses')" class="w-full glass-btn p-3 rounded-xl text-left text-sm flex justify-between text-blue-300"><span>🕶️ Thug Life</span></button>
+                    <button onclick="setMask('clown')" class="w-full glass-btn p-3 rounded-xl text-left text-sm flex justify-between text-red-400"><span>🤡 Palhaço</span></button>
+                    <button onclick="setMask('angel')" class="w-full glass-btn p-3 rounded-xl text-left text-sm flex justify-between text-sky-200"><span>👼 Anjo Santo</span></button>
+                    <button onclick="setMask('demon')" class="w-full glass-btn p-3 rounded-xl text-left text-sm flex justify-between text-rose-500"><span>👿 Demónio</span></button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- INDICADORES CENTRAIS E OVERLAYS DO JOGO -->
+        <div class="flex-1 relative mx-4 pointer-events-none flex flex-col items-center">
+            
+            <!-- Aviso IA Loading -->
+            <div id="aiStatus" class="mt-4 glass px-4 py-2 rounded-full text-xs font-semibold flex items-center gap-2 text-amber-300 pointer-events-auto shadow-lg shadow-black/50">
+                <i data-lucide="loader" class="animate-spin w-4 h-4"></i> Inicializando IA...
+            </div>
+
+            <!-- Aviso Gravação -->
+            <div id="recIndicator" class="hidden mt-2 bg-red-500/80 px-4 py-1.5 rounded-full text-xs font-bold flex items-center gap-2 text-white recording-pulse pointer-events-auto">
+                <div class="w-2 h-2 bg-white rounded-full"></div> GRAVANDO <span id="recTime">00:00</span>
+            </div>
+
+            <!-- Game HUD -->
+            <div id="gameHud" class="hidden mt-4 glass px-6 py-3 rounded-2xl flex gap-6 items-center border-t-4 border-t-pink-500 pointer-events-auto transform scale-125">
+                <div class="text-center">
+                    <p class="text-[10px] text-gray-400 uppercase font-bold">Pontos</p>
+                    <p id="gameScore" class="text-2xl font-display font-bold text-white">0</p>
+                </div>
+                <div class="text-center">
+                    <p class="text-[10px] text-gray-400 uppercase font-bold">Vidas</p>
+                    <p id="gameLives" class="text-lg font-display text-rose-400 tracking-widest">❤️❤️❤️</p>
                 </div>
             </div>
 
-            <!-- TABS -->
-            <nav class="flex p-1 bg-slate-900/60 rounded-xl border border-slate-700/50">
-                <button onclick="switchTab('filters')" id="tab-filters" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium transition-all active bg-indigo-600 shadow-md flex gap-2 items-center">
-                    <i data-lucide="sliders-horizontal" class="w-4 h-4"></i> Filtros
-                </button>
-                <button onclick="switchTab('ar')" id="tab-ar" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium transition-all text-slate-400 hover:text-white flex gap-2 items-center">
-                    <i data-lucide="sparkles" class="w-4 h-4"></i> Efeitos AR
-                </button>
-                <button onclick="switchTab('game')" id="tab-game" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium transition-all text-slate-400 hover:text-white flex gap-2 items-center">
-                    <i data-lucide="gamepad-2" class="w-4 h-4"></i> Jogo
-                </button>
-            </nav>
+            <div id="animContainer" class="absolute inset-0 pointer-events-none overflow-hidden"></div>
 
-            <button id="toggleCamBtn" onclick="toggleCamera()" class="px-5 py-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 font-semibold text-sm transition-all flex items-center gap-2">
-                <i data-lucide="power" class="w-4 h-4"></i>
-                <span id="toggleCamText">Ligar Câmara</span>
+            <!-- HUD Câmera Inativa -->
+            <div id="camOverlay" class="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-50 pointer-events-auto">
+                <div class="glass p-8 rounded-3xl text-center max-w-md">
+                    <div class="w-20 h-20 bg-gradient-to-br from-pink-500 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl shadow-pink-500/20">
+                        <i data-lucide="camera" class="w-10 h-10 text-white"></i>
+                    </div>
+                    <h2 class="text-3xl font-display font-bold mb-2">Câmara Studio Ultra</h2>
+                    <p class="text-sm text-gray-400 mb-8">Ativa a câmara e microfone para experimentar Realidade Aumentada, Jogos Interativos e Gravação de Vídeo Profissional.</p>
+                    <button onclick="startApp()" class="w-full py-4 rounded-xl bg-gradient-to-r from-pink-500 to-indigo-600 text-white font-bold text-lg hover:scale-105 transition-transform shadow-lg shadow-indigo-500/30">
+                        Permitir Acesso & Entrar
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- BARRA LATERAL DIREITA: Jogos & Controles -->
+        <aside class="glass rounded-3xl w-72 h-full flex flex-col pointer-events-auto overflow-hidden shadow-2xl transform transition-transform translate-x-full md:translate-x-0" id="rightSidebar">
+            <div class="flex p-2 gap-2 border-b border-white/10">
+                <button onclick="switchTab('right', 'games')" id="tab-games" class="flex-1 py-2 text-sm font-semibold rounded-xl glass-btn active">Jogos AR</button>
+                <button onclick="switchTab('right', 'settings')" id="tab-settings" class="flex-1 py-2 text-sm font-semibold rounded-xl glass-btn">Câmara</button>
+            </div>
+            
+            <div class="p-4 overflow-y-auto flex-1">
+                <!-- Jogos AR -->
+                <div id="panel-games" class="space-y-3">
+                    <p class="text-xs text-gray-400 mb-4 text-center">Usa o movimento do rosto, nariz e boca para jogar!</p>
+                    
+                    <button onclick="startGame(1)" class="w-full glass-btn p-3 rounded-xl flex items-center gap-3">
+                        <span class="text-2xl">🧺</span> <div class="text-left"><p class="text-sm font-bold text-pink-300">Apanha Estrelas</p><p class="text-[10px] text-gray-400">Move nariz (Esq/Dir)</p></div>
+                    </button>
+                    <button onclick="startGame(2)" class="w-full glass-btn p-3 rounded-xl flex items-center gap-3">
+                        <span class="text-2xl">🍎</span> <div class="text-left"><p class="text-sm font-bold text-green-300">Come a Maçã</p><p class="text-[10px] text-gray-400">Abre a boca para comer</p></div>
+                    </button>
+                    <button onclick="startGame(3)" class="w-full glass-btn p-3 rounded-xl flex items-center gap-3">
+                        <span class="text-2xl">🦅</span> <div class="text-left"><p class="text-sm font-bold text-amber-300">Flappy Head</p><p class="text-[10px] text-gray-400">Move nariz (Cima/Baixo)</p></div>
+                    </button>
+                    <button onclick="startGame(4)" class="w-full glass-btn p-3 rounded-xl flex items-center gap-3">
+                        <span class="text-2xl">👁️</span> <div class="text-left"><p class="text-sm font-bold text-cyan-300">Eye Laser</p><p class="text-[10px] text-gray-400">Dispara lasers dos olhos</p></div>
+                    </button>
+                    <button onclick="startGame(5)" class="w-full glass-btn p-3 rounded-xl flex items-center gap-3">
+                        <span class="text-2xl">🧱</span> <div class="text-left"><p class="text-sm font-bold text-purple-300">Matrix Dodge</p><p class="text-[10px] text-gray-400">Esquiva-te dos blocos</p></div>
+                    </button>
+                    <button onclick="startGame(6)" class="w-full glass-btn p-3 rounded-xl flex items-center gap-3">
+                        <span class="text-2xl">🏓</span> <div class="text-left"><p class="text-sm font-bold text-white">Head Pong</p><p class="text-[10px] text-gray-400">Raquete no nariz (Y)</p></div>
+                    </button>
+
+                    <button id="stopGameBtn" onclick="stopGame()" class="hidden w-full mt-4 py-3 rounded-xl bg-red-500/20 border border-red-500/50 text-red-400 font-bold hover:bg-red-500/40">
+                        Parar Jogo
+                    </button>
+                </div>
+
+                <!-- Definições Câmera -->
+                <div id="panel-settings" class="space-y-6 hidden">
+                    <div>
+                        <div class="flex justify-between text-xs text-gray-400 mb-2"><span>Zoom Digital</span> <span id="lblZoom">1.0x</span></div>
+                        <input type="range" id="zoomRange" min="1" max="3" step="0.1" value="1">
+                    </div>
+                    <div class="glass p-3 rounded-xl border-dashed border-gray-600">
+                        <h4 class="text-xs font-bold text-white mb-1"><i data-lucide="info" class="inline w-3 h-3"></i> Instruções:</h4>
+                        <ul class="text-[10px] text-gray-400 space-y-1 ml-3 list-disc">
+                            <li>O botão vermelho em baixo grava um vídeo real de tudo.</li>
+                            <li>Podes combinar um Filtro, uma Máscara e um Jogo ao mesmo tempo.</li>
+                            <li>Os vídeos/fotos vão para a Galeria.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- BARRA INFERIOR FLUTUANTE: Gravação e Controlos Rápidos -->
+        <div class="absolute bottom-6 left-1/2 transform -translate-x-1/2 glass px-8 py-4 rounded-full flex items-center gap-8 shadow-2xl pointer-events-auto">
+            <!-- Galeria -->
+            <button onclick="toggleGallery()" class="p-3 rounded-full hover:bg-white/10 transition-colors flex flex-col items-center gap-1 text-gray-400 hover:text-white group">
+                <i data-lucide="images" class="w-6 h-6 group-hover:scale-110 transition-transform"></i>
+                <span class="text-[10px] font-bold">Galeria</span>
+            </button>
+
+            <!-- Botões Principais de Captura -->
+            <div class="flex items-center gap-4 border-x border-white/10 px-8">
+                <!-- Foto -->
+                <button onclick="takePhoto()" class="w-14 h-14 rounded-full border-4 border-white bg-white/20 hover:bg-white/40 flex items-center justify-center transition-all hover:scale-105 active:scale-95 group">
+                    <div class="w-10 h-10 bg-white rounded-full shadow-inner group-hover:w-11 group-hover:h-11 transition-all"></div>
+                </button>
+                
+                <!-- Vídeo (Gravar) -->
+                <button onclick="toggleRecording()" id="btnRecord" class="w-16 h-16 rounded-full border-4 border-red-500 bg-red-500/20 hover:bg-red-500/40 flex items-center justify-center transition-all hover:scale-105 active:scale-95 group relative">
+                    <div id="recInner" class="w-8 h-8 bg-red-500 rounded-full shadow-[0_0_15px_rgba(239,68,68,0.8)] transition-all"></div>
+                </button>
+            </div>
+
+            <!-- Toggle Menus Mobile -->
+            <button onclick="toggleMobileMenus()" class="p-3 rounded-full hover:bg-white/10 transition-colors flex flex-col items-center gap-1 text-gray-400 hover:text-white md:hidden group">
+                <i data-lucide="menu" class="w-6 h-6 group-hover:scale-110 transition-transform"></i>
+                <span class="text-[10px] font-bold">Menus</span>
+            </button>
+            <button onclick="flipCamera()" class="p-3 rounded-full hover:bg-white/10 transition-colors flex flex-col items-center gap-1 text-gray-400 hover:text-white hidden md:flex group">
+                <i data-lucide="refresh-cw" class="w-6 h-6 group-hover:scale-110 transition-transform"></i>
+                <span class="text-[10px] font-bold">Inverter</span>
             </button>
         </div>
-    </header>
+    </div>
 
-    <!-- MAIN CONTENT -->
-    <main class="flex-grow max-w-7xl w-full mx-auto p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 relative">
-        
-        <!-- Alerta macOS / Permissões -->
-        <div id="macAlert" class="hidden lg:col-span-12 glass-panel border-amber-500/30 bg-amber-500/10 p-4 rounded-2xl flex items-center justify-between gap-4">
-            <div class="flex items-start gap-3">
-                <i data-lucide="shield-alert" class="w-5 h-5 text-amber-400 mt-0.5"></i>
-                <div>
-                    <h4 class="text-sm font-bold text-amber-300">Problemas no Mac / Permissões?</h4>
-                    <p class="text-xs text-amber-200/70 mt-1">Se a câmara não ligar, vai a <b>Definições do Sistema > Privacidade e Segurança > Câmara</b> e permite o navegador. Evita abrir diretamente o ficheiro (usa um servidor local se der erro de segurança).</p>
-                </div>
-            </div>
-            <button onclick="document.getElementById('macAlert').style.display='none'" class="p-2 hover:bg-amber-500/20 rounded-lg"><i data-lucide="x" class="w-4 h-4 text-amber-400"></i></button>
+    <!-- MODAL GALERIA -->
+    <div id="galleryModal" class="hidden fixed inset-0 bg-black/90 z-[100] backdrop-blur-xl flex-col">
+        <div class="p-6 flex justify-between items-center border-b border-white/10">
+            <h2 class="text-2xl font-display font-bold text-white flex items-center gap-3"><i data-lucide="images"></i> A Minha Galeria</h2>
+            <button onclick="toggleGallery()" class="p-2 bg-white/10 rounded-full hover:bg-white/20"><i data-lucide="x"></i></button>
         </div>
-
-        <!-- CAMERA / CANVAS AREA (Esquerda - 8 colunas) -->
-        <div class="lg:col-span-8 flex flex-col gap-4">
-            <div class="glass-panel p-2 rounded-3xl relative shadow-2xl border border-slate-700 overflow-hidden">
-                
-                <!-- O Ecrã Real -->
-                <div class="relative w-full aspect-video bg-black rounded-2xl overflow-hidden flex items-center justify-center group" id="canvasWrapper">
-                    
-                    <!-- Video Escondido (Fonte de Dados) -->
-                    <video id="webcam" class="hidden" autoplay playsinline></video>
-                    
-                    <!-- Canvas Principal (Onde a magia acontece) -->
-                    <!-- NOTA: O CSS de scaleX(-1) foi REMOVIDO daqui. 
-                         O espelhamento é feito no JavaScript (ctx.scale) 
-                         para garantir que a física do Jogo e coordenadas AR coincidam perfeitamente. -->
-                    <canvas id="mainCanvas" class="w-full h-full object-cover"></canvas>
-
-                    <!-- Overlays de Interface -->
-                    <div id="camOverlay" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-md z-20">
-                        <div class="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center mb-4">
-                            <i data-lucide="video-off" class="w-8 h-8 text-slate-400"></i>
-                        </div>
-                        <h3 class="text-lg font-bold text-white mb-2 font-game">Câmara Desligada</h3>
-                        <p class="text-sm text-slate-400 mb-6 max-w-sm text-center">Inicia a câmara para testares os efeitos em tempo real, realidade aumentada e o jogo interativo.</p>
-                        <button onclick="toggleCamera()" class="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm shadow-lg shadow-indigo-600/30 flex gap-2 items-center transition-all transform hover:scale-105">
-                            <i data-lucide="camera" class="w-4 h-4"></i> Ativar Câmara
-                        </button>
-                    </div>
-
-                    <!-- FPS e Info -->
-                    <div class="absolute top-4 left-4 z-10 flex gap-2">
-                        <span id="fpsBadge" class="hidden px-3 py-1 bg-black/60 backdrop-blur border border-white/10 rounded-full text-[10px] font-mono text-emerald-400 items-center gap-1.5">
-                            <div class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
-                            <span id="fpsCount">60 FPS</span>
-                        </span>
-                    </div>
-
-                    <!-- Game HUD Overlay -->
-                    <div id="gameHud" class="hidden absolute top-4 right-4 z-10 flex gap-3">
-                        <div class="px-4 py-2 bg-black/60 backdrop-blur border border-white/10 rounded-xl text-center">
-                            <p class="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Pontos</p>
-                            <p id="gameScore" class="text-xl font-game font-bold text-amber-400">0</p>
-                        </div>
-                        <div class="px-4 py-2 bg-black/60 backdrop-blur border border-white/10 rounded-xl text-center">
-                            <p class="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Vidas</p>
-                            <p id="gameLives" class="text-xl font-game font-bold text-rose-400">❤️❤️❤️</p>
-                        </div>
-                    </div>
-                    
-                    <!-- Elementos de Animação (Pontuações flutuantes) vão ser injetados aqui -->
-                    <div id="animContainer" class="absolute inset-0 pointer-events-none overflow-hidden z-30"></div>
-                </div>
-
-                <!-- Botões Inferiores (Foto) -->
-                <div class="mt-2 flex gap-2 p-2">
-                    <button onclick="takePhoto()" id="photoBtn" disabled class="flex-1 py-3 rounded-xl glass-button text-sm font-semibold flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
-                        <i data-lucide="camera" class="w-4 h-4"></i> Capturar Foto
-                    </button>
-                    <a id="downloadLink" class="hidden"></a>
-                </div>
+        <div id="galleryGrid" class="flex-1 overflow-y-auto p-6 grid grid-cols-2 md:grid-cols-4 gap-4 content-start">
+            <!-- Itens da galeria gerados dinamicamente -->
+            <div id="emptyGallery" class="col-span-full flex flex-col items-center justify-center h-64 text-gray-500">
+                <i data-lucide="folder-open" class="w-16 h-16 mb-4 opacity-50"></i>
+                <p>Nenhuma foto ou vídeo gravado ainda.</p>
             </div>
         </div>
+    </div>
 
-        <!-- PAINEL LATERAL DE CONTROLOS (Direita - 4 colunas) -->
-        <div class="lg:col-span-4 glass-panel rounded-3xl p-5 border border-slate-700 flex flex-col gap-6 h-[fit-content]">
-            
-            <!-- SECÇÃO: FILTROS (Ativa por defeito) -->
-            <div id="panel-filters" class="panel-section block space-y-6">
-                <div>
-                    <h3 class="text-sm font-bold text-slate-200 mb-3 flex items-center gap-2 uppercase tracking-wide">
-                        <i data-lucide="wand-2" class="w-4 h-4 text-indigo-400"></i> Estilos PRO
-                    </h3>
-                    <div class="grid grid-cols-2 gap-2">
-                        <button onclick="setBaseEffect('normal')" class="glass-button px-3 py-2 rounded-lg text-xs font-medium text-left">✨ Normal</button>
-                        <button onclick="setBaseEffect('cinematic')" class="glass-button px-3 py-2 rounded-lg text-xs font-medium text-left text-amber-100">🎬 Cinematic</button>
-                        <button onclick="setBaseEffect('cyberpunk')" class="glass-button px-3 py-2 rounded-lg text-xs font-medium text-left text-pink-300">🌆 Cyberpunk</button>
-                        <button onclick="setBaseEffect('vhs')" class="glass-button px-3 py-2 rounded-lg text-xs font-medium text-left text-green-300">📼 VHS Retro</button>
-                        <button onclick="setBaseEffect('glitch')" class="glass-button px-3 py-2 rounded-lg text-xs font-medium text-left text-cyan-300 col-span-2 text-center border-cyan-500/30">⚡ RGB Glitch</button>
-                    </div>
-                </div>
-
-                <div class="space-y-4 pt-4 border-t border-slate-800">
-                    <h3 class="text-sm font-bold text-slate-200 flex items-center gap-2 uppercase tracking-wide">
-                        <i data-lucide="sliders" class="w-4 h-4 text-indigo-400"></i> Ajustes
-                    </h3>
-                    
-                    <div class="space-y-1">
-                        <div class="flex justify-between text-[11px] text-slate-400"><span>Brilho</span> <span id="lblBright">100%</span></div>
-                        <input type="range" id="slBright" min="50" max="200" value="100" oninput="updateAdjustments()">
-                    </div>
-                    <div class="space-y-1">
-                        <div class="flex justify-between text-[11px] text-slate-400"><span>Contraste</span> <span id="lblCont">100%</span></div>
-                        <input type="range" id="slCont" min="50" max="200" value="100" oninput="updateAdjustments()">
-                    </div>
-                    <div class="space-y-1">
-                        <div class="flex justify-between text-[11px] text-slate-400"><span>Saturação</span> <span id="lblSat">100%</span></div>
-                        <input type="range" id="slSat" min="0" max="300" value="100" oninput="updateAdjustments()">
-                    </div>
-                </div>
-            </div>
-
-            <!-- SECÇÃO: EFEITOS AR -->
-            <div id="panel-ar" class="panel-section hidden space-y-6">
-                <div>
-                    <h3 class="text-sm font-bold text-slate-200 mb-2 flex items-center gap-2 uppercase tracking-wide">
-                        <i data-lucide="smile" class="w-4 h-4 text-purple-400"></i> Máscaras Faciais
-                    </h3>
-                    <p class="text-xs text-slate-400 mb-4">Usa a IA para mapear elementos no teu rosto em tempo real.</p>
-                    
-                    <div class="grid grid-cols-1 gap-2">
-                        <button onclick="setAR('none')" class="glass-button px-4 py-3 rounded-xl text-sm font-medium flex items-center justify-between active">
-                            <span>🚫 Sem Máscara</span>
-                        </button>
-                        <button onclick="setAR('thug')" class="glass-button px-4 py-3 rounded-xl text-sm font-medium flex items-center justify-between text-indigo-200">
-                            <span>🕶️ Óculos Thug Life</span> <span class="text-[10px] bg-indigo-500/20 px-2 py-1 rounded">Olhos</span>
-                        </button>
-                        <button onclick="setAR('dog')" class="glass-button px-4 py-3 rounded-xl text-sm font-medium flex items-center justify-between text-amber-200">
-                            <span>🐶 Orelhas de Cão & Nariz</span> <span class="text-[10px] bg-amber-500/20 px-2 py-1 rounded">Testa + Nariz</span>
-                        </button>
-                        <button onclick="setAR('crown')" class="glass-button px-4 py-3 rounded-xl text-sm font-medium flex items-center justify-between text-yellow-300">
-                            <span>👑 Coroa Real</span> <span class="text-[10px] bg-yellow-500/20 px-2 py-1 rounded">Topo</span>
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- SECÇÃO: JOGO INTERATIVO -->
-            <div id="panel-game" class="panel-section hidden space-y-4">
-                <div class="p-4 rounded-2xl bg-indigo-900/30 border border-indigo-500/30 text-center">
-                    <div class="w-12 h-12 bg-indigo-600 rounded-full flex items-center justify-center mx-auto mb-2 text-2xl">🐽</div>
-                    <h3 class="font-game font-bold text-lg text-white mb-1">Apanha Estrelas!</h3>
-                    <p class="text-xs text-indigo-200 mb-4">Usa o teu <b class="text-white">nariz</b> para mover o cesto (círculo) da esquerda para a direita. <br>⭐ = +10 pts | 💣 = -1 Vida.</p>
-                    
-                    <button id="startGameBtn" onclick="toggleGameState()" disabled class="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-400 hover:to-purple-400 text-white font-bold text-sm shadow-lg shadow-indigo-500/25 transition-all disabled:opacity-50 disabled:grayscale">
-                        Iniciar Jogo
-                    </button>
-                </div>
-                
-                <div id="gameOverMsg" class="hidden p-3 rounded-xl bg-rose-900/30 border border-rose-500/30 text-center text-sm font-medium text-rose-200">
-                    Fim do Jogo! Pontuação Final: <span id="finalScore" class="font-bold text-white">0</span>
-                </div>
-            </div>
-
-        </div>
-    </main>
-
+    <!-- SCRIPT PRINCIPAL -->
     <script>
-        // Inicialização de Ícones
         lucide.createIcons();
 
-        // Variáveis Globais DOM
+        // Variáveis de DOM
         const video = document.getElementById('webcam');
         const canvas = document.getElementById('mainCanvas');
         const ctx = canvas.getContext('2d');
-        const overlay = document.getElementById('camOverlay');
-        const toggleCamBtn = document.getElementById('toggleCamBtn');
-        const toggleCamText = document.getElementById('toggleCamText');
-        const aiStatus = document.getElementById('aiStatus');
-        
+        const animContainer = document.getElementById('animContainer');
+
+        // Estado da App
         let stream = null;
-        let isCameraOn = false;
-        let requestAnimId = null;
-        let lastTime = 0;
-        let fps = 0;
-
-        // Estado do Filtro
-        let activeEffect = 'normal';
-        let adjustments = { bright: 100, cont: 100, sat: 100 };
+        let isRunning = false;
+        let animId = null;
+        let facingMode = 'user'; // ou 'environment'
         
-        // Estado AR
-        let activeAR = 'none';
-        let faceLandmarks = null;
-        let faceMeshLoaded = false;
+        // IA & AR
         let faceMesh = null;
+        let faceLandmarks = null;
+        let iaLoaded = false;
+        let activeFilter = 'none';
+        let activeMask = 'none';
+        let zoomLevel = 1.0;
 
-        // Estado do Jogo
-        let isGameActive = false;
+        // Gravação
+        let mediaRecorder = null;
+        let recordedChunks = [];
+        let isRecording = false;
+        let recStartTime = 0;
+        let recInterval = null;
+        let galleryItems = []; // {type: 'image'|'video', url: string, date: string}
+
+        // Estado Jogo
+        let activeGame = 0;
         let gameScore = 0;
         let gameLives = 3;
-        let gameItems = [];
-        let playerX = 0; // Posição X mapeada do nariz
-        let playerY = 0; // Posição Y mapeada do nariz
+        let entities = []; // Objetos do jogo
+        let lastTime = 0;
 
-        // Dimensões Virtuais do Jogo para manter consistência em redimensionamentos
-        const GAME_W = 1280;
-        const GAME_H = 720;
-        canvas.width = GAME_W;
-        canvas.height = GAME_H;
+        // Dimensões Virtuais Internas (Alta Resolução)
+        const GW = 1280;
+        const GH = 720;
+        
+        // Ajuste de ecrã dinâmico
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
 
-        // ---------------------------------------------------------
-        // GESTÃO DE TABS
-        // ---------------------------------------------------------
-        function switchTab(tabId) {
-            document.querySelectorAll('.panel-section').forEach(el => el.classList.add('hidden'));
-            document.querySelectorAll('.tab-btn').forEach(el => {
-                el.classList.remove('bg-indigo-600', 'active', 'text-white', 'shadow-md');
-                el.classList.add('text-slate-400');
-            });
+        // UI Helpers
+        function switchTab(side, tabId) {
+            const sidebar = side === 'left' ? 'leftSidebar' : 'rightSidebar';
+            const panels = document.getElementById(sidebar).querySelectorAll('[id^="panel-"]');
+            const btns = document.getElementById(sidebar).querySelectorAll('[id^="tab-"]');
+            
+            panels.forEach(p => p.classList.add('hidden'));
+            btns.forEach(b => b.classList.remove('active'));
             
             document.getElementById(`panel-${tabId}`).classList.remove('hidden');
-            const btn = document.getElementById(`tab-${tabId}`);
-            btn.classList.add('bg-indigo-600', 'active', 'text-white', 'shadow-md');
-            btn.classList.remove('text-slate-400');
-
-            // Se sair do tab do jogo, pausar o jogo
-            if(tabId !== 'game' && isGameActive) {
-                toggleGameState(true); // força paragem
-            }
+            document.getElementById(`tab-${tabId}`).classList.add('active');
         }
 
-        // ---------------------------------------------------------
-        // SETUP DA CÂMARA E MEDIAPIPE (IA)
-        // ---------------------------------------------------------
-        async function initFaceMesh() {
-            try {
-                faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
-                faceMesh.setOptions({
-                    maxNumFaces: 1,
-                    refineLandmarks: true,
-                    minDetectionConfidence: 0.6,
-                    minTrackingConfidence: 0.6
-                });
-                
-                faceMesh.onResults((results) => {
-                    if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
-                        faceLandmarks = results.multiFaceLandmarks[0];
-                    } else {
-                        faceLandmarks = null;
-                    }
-                });
-                
-                // Forçar um aquecimento rápido enviando um canvas vazio
-                await faceMesh.send({image: document.createElement('canvas')});
-                
-                faceMeshLoaded = true;
-                aiStatus.innerHTML = '<i data-lucide="check-circle" class="w-3.5 h-3.5"></i> IA Pronta';
-                aiStatus.className = "flex items-center gap-1.5 text-emerald-400";
-                lucide.createIcons();
-                document.getElementById('startGameBtn').disabled = !isCameraOn; // Habilita o jogo se a câmara já estiver on
-
-            } catch (err) {
-                console.error("Erro no FaceMesh:", err);
-                aiStatus.innerHTML = '<i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i> IA Falhou';
-                aiStatus.className = "flex items-center gap-1.5 text-rose-400";
-                lucide.createIcons();
-            }
-        }
-
-        async function toggleCamera() {
-            if (isCameraOn) {
-                stopCamera();
+        function toggleMobileMenus() {
+            const L = document.getElementById('leftSidebar');
+            const R = document.getElementById('rightSidebar');
+            if(L.classList.contains('-translate-x-full')) {
+                L.classList.remove('-translate-x-full');
+                R.classList.remove('translate-x-full');
             } else {
-                try {
-                    stream = await navigator.mediaDevices.getUserMedia({
-                        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
-                        audio: false
-                    });
-                    video.srcObject = stream;
-                    await video.play();
-                    
-                    isCameraOn = true;
-                    overlay.classList.add('hidden');
-                    document.getElementById('fpsBadge').classList.remove('hidden');
-                    document.getElementById('fpsBadge').classList.add('flex');
-                    document.getElementById('photoBtn').disabled = false;
-                    if(faceMeshLoaded) document.getElementById('startGameBtn').disabled = false;
-                    
-                    toggleCamBtn.className = "px-5 py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 font-semibold text-sm transition-all flex items-center gap-2";
-                    toggleCamText.textContent = "Desligar Câmara";
-
-                    requestAnimId = requestAnimationFrame(renderLoop);
-                } catch (err) {
-                    console.error(err);
-                    document.getElementById('macAlert').style.display = 'flex';
-                }
+                L.classList.add('-translate-x-full');
+                R.classList.add('translate-x-full');
             }
         }
 
-        function stopCamera() {
-            if (stream) stream.getTracks().forEach(t => t.stop());
-            video.srcObject = null;
-            isCameraOn = false;
-            cancelAnimationFrame(requestAnimId);
-            
-            // Clear canvas
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            overlay.classList.remove('hidden');
-            document.getElementById('fpsBadge').classList.add('hidden');
-            document.getElementById('photoBtn').disabled = true;
-            document.getElementById('startGameBtn').disabled = true;
-            if(isGameActive) toggleGameState(true);
-            
-            toggleCamBtn.className = "px-5 py-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 font-semibold text-sm transition-all flex items-center gap-2";
-            toggleCamText.textContent = "Ligar Câmara";
+        // ---------------------------------------------
+        // INICIALIZAÇÃO E CÂMARA
+        // ---------------------------------------------
+        async function startApp() {
+            document.getElementById('camOverlay').style.display = 'none';
+            await startCamera();
+            initMediaPipe();
+            requestAnimationFrame(gameLoop);
         }
 
-        // ---------------------------------------------------------
-        // LOOP PRINCIPAL DE RENDERIZAÇÃO
-        // ---------------------------------------------------------
-        async function renderLoop(timestamp) {
-            if (!isCameraOn) return;
+        async function startCamera() {
+            if (stream) stream.getTracks().forEach(t => t.stop());
+            try {
+                // Pedir Vídeo e Áudio (para gravação)
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: { ideal: GW }, height: { ideal: GH }, facingMode: facingMode },
+                    audio: true
+                });
+                video.srcObject = stream;
+                // Mute vídeo local para não dar eco, o áudio será usado no stream gravado
+                video.muted = true; 
+                await video.play();
+                isRunning = true;
+            } catch (err) {
+                alert("Erro ao aceder à câmara/microfone: " + err.message);
+                document.getElementById('camOverlay').style.display = 'flex';
+            }
+        }
 
-            // Calcular FPS
+        function flipCamera() {
+            facingMode = facingMode === 'user' ? 'environment' : 'user';
+            startCamera();
+        }
+
+        // ---------------------------------------------
+        // MEDIAPIPE FACE MESH (IA)
+        // ---------------------------------------------
+        function initMediaPipe() {
+            faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
+            faceMesh.setOptions({
+                maxNumFaces: 1,
+                refineLandmarks: true,
+                minDetectionConfidence: 0.5,
+                minTrackingConfidence: 0.5
+            });
+            faceMesh.onResults((results) => {
+                faceLandmarks = results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0 ? results.multiFaceLandmarks[0] : null;
+            });
+            
+            // Aquecimento
+            faceMesh.send({image: document.createElement('canvas')}).then(() => {
+                iaLoaded = true;
+                const status = document.getElementById('aiStatus');
+                status.innerHTML = '<i data-lucide="check" class="w-4 h-4"></i> IA Pronta';
+                status.classList.replace('text-amber-300', 'text-emerald-400');
+                lucide.createIcons();
+                setTimeout(() => status.classList.add('hidden'), 3000);
+            });
+        }
+
+        // ---------------------------------------------
+        // GRAVAÇÃO DE VÍDEO E FOTOS
+        // ---------------------------------------------
+        document.getElementById('zoomRange').addEventListener('input', (e) => {
+            zoomLevel = parseFloat(e.target.value);
+            document.getElementById('lblZoom').textContent = zoomLevel.toFixed(1) + 'x';
+        });
+
+        function takePhoto() {
+            if (!isRunning) return;
+            // Flash Effect no DOM
+            const flash = document.createElement('div');
+            flash.className = "absolute inset-0 bg-white z-50 transition-opacity duration-300";
+            document.body.appendChild(flash);
+            setTimeout(() => flash.style.opacity = '0', 50);
+            setTimeout(() => flash.remove(), 350);
+
+            // Guardar imagem do Canvas renderizado
+            const dataUrl = canvas.toDataURL('image/png');
+            galleryItems.unshift({type: 'image', url: dataUrl, date: new Date().toLocaleTimeString()});
+            updateGalleryUI();
+        }
+
+        function toggleRecording() {
+            if (!isRunning) return;
+            const btnRec = document.getElementById('btnRecord');
+            const inner = document.getElementById('recInner');
+            const ind = document.getElementById('recIndicator');
+
+            if (isRecording) {
+                // PARAR
+                mediaRecorder.stop();
+                isRecording = false;
+                clearInterval(recInterval);
+                
+                inner.classList.replace('w-6', 'w-8');
+                inner.classList.replace('h-6', 'h-8');
+                inner.classList.remove('rounded-sm');
+                inner.classList.add('rounded-full');
+                ind.classList.add('hidden');
+            } else {
+                // INICIAR
+                recordedChunks = [];
+                
+                // Juntar Vídeo do Canvas com Áudio do Microfone
+                const canvasStream = canvas.captureStream(30);
+                const audioTracks = stream.getAudioTracks();
+                if(audioTracks.length > 0) canvasStream.addTrack(audioTracks[0]);
+
+                mediaRecorder = new MediaRecorder(canvasStream, { mimeType: 'video/webm' });
+                mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                    const url = URL.createObjectURL(blob);
+                    galleryItems.unshift({type: 'video', url: url, date: new Date().toLocaleTimeString()});
+                    updateGalleryUI();
+                };
+                mediaRecorder.start();
+                
+                isRecording = true;
+                recStartTime = Date.now();
+                recInterval = setInterval(() => {
+                    const s = Math.floor((Date.now() - recStartTime)/1000);
+                    document.getElementById('recTime').textContent = `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+                }, 1000);
+                
+                // UI Visual
+                inner.classList.replace('w-8', 'w-6');
+                inner.classList.replace('h-8', 'h-6');
+                inner.classList.remove('rounded-full');
+                inner.classList.add('rounded-sm');
+                ind.classList.remove('hidden');
+            }
+        }
+
+        function toggleGallery() {
+            const gal = document.getElementById('galleryModal');
+            gal.classList.toggle('hidden');
+            gal.classList.toggle('flex');
+            updateGalleryUI();
+        }
+
+        function updateGalleryUI() {
+            const grid = document.getElementById('galleryGrid');
+            const empty = document.getElementById('emptyGallery');
+            
+            // Limpa tudo menos o empty
+            Array.from(grid.children).forEach(c => { if(c.id !== 'emptyGallery') c.remove(); });
+            
+            if (galleryItems.length === 0) {
+                empty.style.display = 'flex';
+                return;
+            }
+            empty.style.display = 'none';
+
+            galleryItems.forEach(item => {
+                const div = document.createElement('div');
+                div.className = "relative group rounded-xl overflow-hidden glass aspect-[3/4] border border-white/20";
+                
+                if (item.type === 'image') {
+                    div.innerHTML = `<img src="${item.url}" class="w-full h-full object-cover">`;
+                } else {
+                    div.innerHTML = `<video src="${item.url}" class="w-full h-full object-cover" controls></video>`;
+                }
+
+                // Download Overlay
+                const ov = document.createElement('a');
+                ov.href = item.url;
+                ov.download = `Capture_${Date.now()}.${item.type === 'image' ? 'png' : 'webm'}`;
+                ov.className = "absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white z-10";
+                ov.innerHTML = `<i data-lucide="download" class="w-8 h-8 mb-2"></i><span class="text-xs font-bold">${item.date}</span>`;
+                
+                if(item.type === 'image') div.appendChild(ov); // Vídeos tem controls nativos
+                
+                grid.appendChild(div);
+            });
+            lucide.createIcons();
+        }
+
+        // ---------------------------------------------
+        // DEFINIR FILTROS E MÁSCARAS
+        // ---------------------------------------------
+        function setFilter(f) {
+            activeFilter = f;
+            document.querySelectorAll('#panel-filters button').forEach(b => b.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+        }
+
+        function setMask(m) {
+            activeMask = m;
+            document.querySelectorAll('#panel-masks button').forEach(b => b.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+        }
+
+        // ---------------------------------------------
+        // LOOP PRINCIPAL DE RENDERIZAÇÃO
+        // ---------------------------------------------
+        function gameLoop(timestamp) {
+            if (!isRunning) return;
             const dt = timestamp - lastTime;
             lastTime = timestamp;
-            fps = Math.round(1000 / dt);
-            if (timestamp % 30 < 1) document.getElementById('fpsCount').textContent = `${fps} FPS`;
 
-            // Alimentar IA assincronamente a cada 2 frames para performance
-            if (faceMeshLoaded && video.readyState >= 2 && Math.floor(timestamp)%2 === 0) {
-                faceMesh.send({image: video}).catch(e=>{});
+            // Feed MediaPipe (limita a ~30 fps para performance)
+            if (iaLoaded && video.readyState >= 2 && Math.floor(timestamp)%2===0) {
+                faceMesh.send({image: video}).catch(()=>{});
             }
 
-            // LIMPAR O CANVAS
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.save();
-
-            // ==========================================
-            // O SEGREDO DO ESPELHAMENTO PERFEITO (MIRRORING)
-            // ==========================================
-            // Invertemos horizontalmente o contexto. 
-            // Tudo desenhado daqui em diante será espelhado fisicamente.
-            ctx.translate(canvas.width, 0);
-            ctx.scale(-1, 1);
-
-            // APLICAR FILTROS BASE CSS (Brilho, Contraste)
-            ctx.filter = `brightness(${adjustments.bright}%) contrast(${adjustments.cont}%) saturate(${adjustments.sat}%)`;
-
-            // DESENHAR O VÍDEO
-            drawVideoWithEffects();
-
-            // DESENHAR AR (Máscaras Faciais) - Como o canvas está espelhado,
-            // desenhar nas coordenadas originais X (0 a 1) mapeadas, vai ser 
-            // perfeitamente refletido no ecrã e acompanhar a cabeça corretamente.
-            if (faceLandmarks) {
-                drawAR();
-            }
-
-            // DESENHAR O JOGO (Se Ativo)
-            if (isGameActive) {
-                updateAndDrawGame();
-            }
-
-            ctx.restore(); // Restaura o scale(-1, 1)
-
-            // Loop
-            requestAnimId = requestAnimationFrame(renderLoop);
-        }
-
-        // ---------------------------------------------------------
-        // EFEITOS CINEMATOGRÁFICOS E GLITCH
-        // ---------------------------------------------------------
-        function updateAdjustments() {
-            adjustments.bright = document.getElementById('slBright').value;
-            adjustments.cont = document.getElementById('slCont').value;
-            adjustments.sat = document.getElementById('slSat').value;
-            
-            document.getElementById('lblBright').textContent = `${adjustments.bright}%`;
-            document.getElementById('lblCont').textContent = `${adjustments.cont}%`;
-            document.getElementById('lblSat').textContent = `${adjustments.sat}%`;
-        }
-
-        function setBaseEffect(eff) {
-            activeEffect = eff;
-            // Remover estilos ativos dos botões
-            document.querySelectorAll('#panel-filters button').forEach(b => b.classList.remove('active', 'bg-white/10'));
-            event.currentTarget.classList.add('active', 'bg-white/10');
-
-            // Reset manual de adjustments
-            document.getElementById('slBright').value = 100;
-            document.getElementById('slCont').value = 100;
-            document.getElementById('slSat').value = 100;
-
-            if(eff === 'cinematic') {
-                document.getElementById('slCont').value = 120;
-                document.getElementById('slSat').value = 80;
-            } else if (eff === 'cyberpunk') {
-                document.getElementById('slCont').value = 130;
-                document.getElementById('slSat').value = 180;
-            }
-            updateAdjustments();
-        }
-
-        function drawVideoWithEffects() {
-            const w = canvas.width;
-            const h = canvas.height;
-
-            if (activeEffect === 'glitch') {
-                // Efeito de Aberração Cromática Manual
-                ctx.globalAlpha = 0.5;
-                
-                // Canal Vermelho Shift Left
-                ctx.filter += " hue-rotate(90deg)";
-                ctx.drawImage(video, 10, 0, w, h);
-                
-                // Canal Ciano Shift Right
-                ctx.filter = ctx.filter.replace("hue-rotate(90deg)", "hue-rotate(-90deg)");
-                ctx.drawImage(video, -10, 0, w, h);
-                
-                ctx.globalAlpha = 1.0;
-                ctx.filter = `brightness(${adjustments.bright}%) contrast(${adjustments.cont}%) saturate(${adjustments.sat}%)`;
-                
-                // Linhas de Scan
-                ctx.fillStyle = 'rgba(0,0,0,0.1)';
-                for(let i=0; i<h; i+=4) { ctx.fillRect(0, i, w, 1); }
-            } 
-            else if (activeEffect === 'vhs') {
-                ctx.filter += " sepia(30%) blur(1px)";
-                ctx.drawImage(video, 0, 0, w, h);
-                // Noise texturing and tracking lines
-                if(Math.random() > 0.8) {
-                    const lineY = Math.random() * h;
-                    ctx.fillStyle = 'rgba(255,255,255,0.2)';
-                    ctx.fillRect(0, lineY, w, Math.random() * 20);
-                }
-            } 
-            else {
-                // Desenho Normal
-                ctx.drawImage(video, 0, 0, w, h);
-            }
-
-            // Overlay Cinematic Letterbox
-            if(activeEffect === 'cinematic') {
-                ctx.fillStyle = '#000';
-                ctx.fillRect(0, 0, w, h * 0.12);
-                ctx.fillRect(0, h - (h * 0.12), w, h * 0.12);
-            }
-        }
-
-        // ---------------------------------------------------------
-        // REALIDADE AUMENTADA (AR MASKS)
-        // ---------------------------------------------------------
-        function setAR(type) {
-            activeAR = type;
-            document.querySelectorAll('#panel-ar button').forEach(b => b.classList.remove('active', 'border-indigo-500'));
-            event.currentTarget.classList.add('active', 'border-indigo-500');
-        }
-
-        function drawAR() {
-            if (activeAR === 'none' || !faceLandmarks) return;
-            
             const w = canvas.width;
             const h = canvas.height;
             
+            // 1. Limpar e Setup
+            ctx.clearRect(0, 0, w, h);
             ctx.save();
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-
-            if (activeAR === 'thug') {
-                // Óculos: Usar o olho esquerdo (33) e direito (263)
-                const leftEye = faceLandmarks[33];
-                const rightEye = faceLandmarks[263];
-                
-                const eyeCenterX = ((leftEye.x + rightEye.x) / 2) * w;
-                const eyeCenterY = ((leftEye.y + rightEye.y) / 2) * h;
-                
-                // Calcular ângulo de inclinação da cabeça
-                const dx = (rightEye.x - leftEye.x) * w;
-                const dy = (rightEye.y - leftEye.y) * h;
-                const angle = Math.atan2(dy, dx);
-                
-                // Distância entre os olhos para escalar o tamanho dos óculos
-                const dist = Math.hypot(dx, dy);
-                const fontSize = dist * 2.5; // Escala do emoji
-
-                ctx.translate(eyeCenterX, eyeCenterY);
-                ctx.rotate(angle);
-                ctx.font = `${fontSize}px Arial`;
-                // Como o canvas está espelhado, os gráficos e texto ficam invertidos.
-                // Mas para emojis simétricos como óculos, não há problema, ou podemos refletir o texto.
-                ctx.scale(-1, 1); 
-                ctx.fillText("🕶️", 0, 0);
-            } 
-            else if (activeAR === 'dog') {
-                // Nariz (1)
-                const nose = faceLandmarks[1];
-                const noseX = nose.x * w;
-                const noseY = nose.y * h;
-                
-                // Testa (10)
-                const top = faceLandmarks[10];
-                const topX = top.x * w;
-                const topY = top.y * h;
-
-                // Tamanho baseado no rosto (distância nariz à testa)
-                const faceSize = Math.hypot((top.x-nose.x)*w, (top.y-nose.y)*h);
-
-                // Desenhar Nariz
-                ctx.save();
-                ctx.translate(noseX, noseY);
+            
+            // Espelhamento Horizontal (Mirror)
+            if (facingMode === 'user') {
+                ctx.translate(w, 0);
                 ctx.scale(-1, 1);
-                ctx.font = `${faceSize * 0.6}px Arial`;
-                ctx.fillText("🐽", 0, 0);
-                ctx.restore();
-
-                // Desenhar Orelhas (um pouco acima da testa)
-                ctx.save();
-                ctx.translate(topX, topY - (faceSize * 0.4));
-                ctx.scale(-1, 1);
-                ctx.font = `${faceSize * 1.5}px Arial`;
-                ctx.fillText("🐶", 0, 0); // Emoji de cara de cão serve como máscara de topo
-                ctx.restore();
             }
-            else if (activeAR === 'crown') {
-                const top = faceLandmarks[10]; // Centro superior da testa
-                
-                ctx.translate(top.x * w, top.y * h - 80);
-                ctx.scale(-1, 1);
-                ctx.font = "120px Arial";
-                ctx.fillText("👑", 0, 0);
+
+            // Zoom
+            if (zoomLevel > 1.0) {
+                ctx.translate(w/2, h/2);
+                ctx.scale(zoomLevel, zoomLevel);
+                ctx.translate(-w/2, -h/2);
+            }
+
+            // 2. Desenhar Vídeo Base preenchendo o ecrã
+            // Calcular object-fit cover
+            const videoRatio = video.videoWidth / video.videoHeight;
+            const canvasRatio = w / h;
+            let drawW, drawH, drawX, drawY;
+            if (canvasRatio > videoRatio) {
+                drawW = w; drawH = w / videoRatio; drawX = 0; drawY = (h - drawH) / 2;
+            } else {
+                drawW = h * videoRatio; drawH = h; drawX = (w - drawW) / 2; drawY = 0;
+            }
+
+            ctx.drawImage(video, drawX, drawY, drawW, drawH);
+
+            // 3. Aplicar Filtros (Post-Processing)
+            applyFilters(w, h);
+
+            // Coordenadas Base para AR e Jogos
+            // O MediaPipe dá coords 0..1 relativas ao vídeo. Temos de mapear para o canvas (drawX, drawY, drawW, drawH).
+            function mapPt(pt) {
+                return { x: drawX + pt.x * drawW, y: drawY + pt.y * drawH };
+            }
+
+            // 4. Desenhar AR Máscaras
+            if (faceLandmarks && activeMask !== 'none') {
+                drawAR(mapPt);
+            }
+
+            // 5. Atualizar e Desenhar Jogos
+            if (activeGame > 0) {
+                updateAndDrawGame(dt, w, h, mapPt);
             }
 
             ctx.restore();
+            animId = requestAnimationFrame(gameLoop);
         }
 
-        // ---------------------------------------------------------
-        // JOGO TIKTOK: LÓGICA E FÍSICA
-        // ---------------------------------------------------------
-        function toggleGameState(forceStop = false) {
-            const btn = document.getElementById('startGameBtn');
-            const hud = document.getElementById('gameHud');
-            const overMsg = document.getElementById('gameOverMsg');
+        // ---------------------------------------------
+        // LÓGICA DE FILTROS 
+        // ---------------------------------------------
+        function applyFilters(w, h) {
+            if (activeFilter === 'none') return;
 
-            if (isGameActive || forceStop) {
-                // Parar
-                isGameActive = false;
-                hud.classList.add('hidden');
-                btn.textContent = "Iniciar Novo Jogo";
-                btn.classList.replace('from-rose-500', 'from-indigo-500');
-                btn.classList.replace('to-orange-500', 'to-purple-500');
-                if(!forceStop && gameLives <= 0) {
-                    overMsg.classList.remove('hidden');
-                    document.getElementById('finalScore').textContent = gameScore;
+            let imgData;
+            // Para filtros nativos do Canvas
+            if (activeFilter === 'bw') {
+                ctx.fillStyle = "rgba(0,0,0,0.1)"; // Apenas para escurecer
+                ctx.filter = "grayscale(100%) contrast(120%)";
+                ctx.drawImage(canvas, 0, 0, w, h);
+                ctx.filter = "none";
+            }
+            else if (activeFilter === 'sepia') {
+                ctx.filter = "sepia(80%) contrast(110%) brightness(90%)";
+                ctx.drawImage(canvas, 0, 0, w, h);
+                ctx.filter = "none";
+            }
+            else if (activeFilter === 'matrix') {
+                ctx.filter = "hue-rotate(90deg) contrast(150%) saturate(150%)";
+                ctx.drawImage(canvas, 0, 0, w, h);
+                ctx.filter = "none";
+                // Scanlines
+                ctx.fillStyle = 'rgba(0,255,0,0.1)';
+                for(let i=0; i<h; i+=5) ctx.fillRect(0, i, w, 1);
+            }
+            else if (activeFilter === 'glitch') {
+                // RGB Split Simples (Mais rápido que getImageData)
+                ctx.globalAlpha = 0.5;
+                ctx.globalCompositeOperation = 'screen';
+                ctx.filter = "hue-rotate(90deg)"; // Simula Vermelho
+                ctx.drawImage(canvas, 10, 0, w, h);
+                ctx.filter = "hue-rotate(-90deg)"; // Simula Ciano
+                ctx.drawImage(canvas, -10, 0, w, h);
+                ctx.globalAlpha = 1.0;
+                ctx.globalCompositeOperation = 'source-over';
+                ctx.filter = "none";
+                if(Math.random() > 0.8) {
+                    ctx.fillStyle = 'rgba(255,255,255,0.2)';
+                    ctx.fillRect(0, Math.random()*h, w, Math.random()*20);
                 }
-            } else {
-                // Iniciar
-                isGameActive = true;
-                gameScore = 0;
-                gameLives = 3;
-                gameItems = [];
-                updateGameHud();
-                hud.classList.remove('hidden');
-                overMsg.classList.add('hidden');
-                
-                btn.textContent = "Parar Jogo";
-                btn.classList.replace('from-indigo-500', 'from-rose-500');
-                btn.classList.replace('to-purple-500', 'to-orange-500');
+            }
+            else if (activeFilter === 'pixel') {
+                // Efeito Pixel usando aliasing do canvas
+                const pSize = 10;
+                const cw = w/pSize; const ch = h/pSize;
+                ctx.imageSmoothingEnabled = false;
+                ctx.drawImage(canvas, 0, 0, cw, ch);
+                ctx.drawImage(canvas, 0, 0, cw, ch, 0, 0, w, h);
+                ctx.imageSmoothingEnabled = true;
             }
         }
 
-        function updateGameHud() {
-            document.getElementById('gameScore').textContent = gameScore;
-            let hearts = "";
-            for(let i=0; i<3; i++) hearts += i < gameLives ? "❤️" : "🖤";
-            document.getElementById('gameLives').textContent = hearts;
+        // ---------------------------------------------
+        // LÓGICA DE AR (MÁSCARAS)
+        // ---------------------------------------------
+        function drawAR(mapPt) {
+            ctx.save();
+            ctx.textAlign = "center"; ctx.textBaseline = "middle";
+            
+            // Helper function para emojis orientados à cabeça
+            const drawEmoji = (emoji, refPt1, refPt2, yOffsetMult, scaleMult, reverseMirror = true) => {
+                const pt1 = mapPt(refPt1);
+                const pt2 = mapPt(refPt2);
+                const cx = (pt1.x + pt2.x)/2;
+                const cy = (pt1.y + pt2.y)/2;
+                const dx = pt2.x - pt1.x;
+                const dy = pt2.y - pt1.y;
+                const angle = Math.atan2(dy, dx);
+                const dist = Math.hypot(dx, dy);
+                
+                ctx.save();
+                ctx.translate(cx, cy + dist * yOffsetMult);
+                ctx.rotate(angle);
+                if (reverseMirror && facingMode==='user') ctx.scale(-1, 1); // Desvira emoji no espelho
+                ctx.font = `${dist * scaleMult}px Arial`;
+                ctx.fillText(emoji, 0, 0);
+                ctx.restore();
+            };
+
+            const lEye = faceLandmarks[33]; const rEye = faceLandmarks[263];
+            const nose = faceLandmarks[1]; const topHead = faceLandmarks[10];
+
+            switch(activeMask) {
+                case 'glasses':
+                    drawEmoji("🕶️", lEye, rEye, 0, 2.8);
+                    break;
+                case 'crown':
+                    drawEmoji("👑", lEye, rEye, -2.5, 3.5);
+                    break;
+                case 'cat':
+                    drawEmoji("🐱", lEye, rEye, -1.8, 3.5); // Orelhas
+                    drawEmoji("🐽", lEye, rEye, 1.2, 1.0); // Nariz (aproveito o focinho)
+                    // Bigodes simples
+                    ctx.strokeStyle = "rgba(255,255,255,0.8)"; ctx.lineWidth=3;
+                    const nPt = mapPt(nose);
+                    ctx.beginPath(); ctx.moveTo(nPt.x-20, nPt.y); ctx.lineTo(nPt.x-80, nPt.y-10); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(nPt.x-20, nPt.y+10); ctx.lineTo(nPt.x-80, nPt.y+20); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(nPt.x+20, nPt.y); ctx.lineTo(nPt.x+80, nPt.y-10); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(nPt.x+20, nPt.y+10); ctx.lineTo(nPt.x+80, nPt.y+20); ctx.stroke();
+                    break;
+                case 'clown':
+                    drawEmoji("🤡", lEye, rEye, -1.5, 4.5); // Peruca/Face
+                    drawEmoji("🔴", lEye, rEye, 1.2, 1.5); // Nariz Vermelho
+                    break;
+                case 'angel':
+                    drawEmoji("👼", lEye, rEye, -2.2, 4.0); // Anjo (auréola incluída na face)
+                    break;
+                case 'demon':
+                    drawEmoji("👿", lEye, rEye, -0.5, 4.5); 
+                    break;
+            }
+            ctx.restore();
         }
 
-        function spawnFloatingText(text, x, y, colorClass) {
-            // Este texto tem de ser desenhado no DOM porque o Canvas está espelhado 
-            // e os textos normais ficariam ao contrário.
-            const container = document.getElementById('animContainer');
+        // ---------------------------------------------
+        // MOTOR DE JOGOS INTERATIVOS
+        // ---------------------------------------------
+        function startGame(id) {
+            activeGame = id;
+            gameScore = 0;
+            gameLives = id === 4 ? 99 : 3; // Laser não tem vidas, é infinito
+            entities = [];
+            
+            document.getElementById('gameHud').classList.remove('hidden');
+            document.getElementById('stopGameBtn').classList.remove('hidden');
+            updateGameUI();
+            
+            // Destaca botão selecionado
+            document.querySelectorAll('#panel-games button').forEach((b, i) => {
+                if (i < 6) { b.classList.remove('border-pink-500'); b.style.borderColor = 'rgba(255,255,255,0.15)'; }
+            });
+            event.currentTarget.classList.add('border-pink-500');
+            event.currentTarget.style.borderColor = '#ec4899';
+
+            // Setup Específico
+            if (id === 6) { // Pong
+                entities.push({x: window.innerWidth/2, y: window.innerHeight/2, vx: 10, vy: 10, type: 'ball'});
+            }
+        }
+
+        function stopGame() {
+            activeGame = 0;
+            document.getElementById('gameHud').classList.add('hidden');
+            document.getElementById('stopGameBtn').classList.add('hidden');
+            document.querySelectorAll('#panel-games button').forEach(b => {
+                b.classList.remove('border-pink-500'); b.style.borderColor = 'rgba(255,255,255,0.15)';
+            });
+        }
+
+        function updateGameUI() {
+            document.getElementById('gameScore').textContent = gameScore;
+            let h = ""; for(let i=0; i<3; i++) h += i < gameLives ? "❤️" : "🖤";
+            document.getElementById('gameLives').textContent = activeGame === 4 ? "∞" : h;
+        }
+
+        function spawnFloatingText(text, x, y, colClass) {
             const el = document.createElement('div');
             el.textContent = text;
-            // Coordenadas têm de ser convertidas da escala do canvas (1280x720) para os pixeis da Div (que usa object-fit).
-            // Para simplificar: mostramos no centro ou perto.
-            el.className = `score-anim text-2xl ${colorClass}`;
+            el.className = `float-text text-3xl ${colClass}`;
+            // Mapear Coords do Canvas para DOM (Tendo em conta espelho se facingMode=='user')
+            let domX = x;
+            if (facingMode === 'user') domX = canvas.width - x; // Inverte para alinhar visual
             
-            // X precisa ser revertido visualmente porque o DOM não está espelhado, mas a lógica sim.
-            const domW = container.clientWidth;
-            const domH = container.clientHeight;
-            // landmark.x já representa 0 (esquerda do canvas) a 1. Na ecrã espelhado, landmark.x=0 é o ecrã à esquerda.
-            const leftPerc = (1 - (x / GAME_W)) * 100; // Inverte para alinhar com o DOM
-            const topPerc = (y / GAME_H) * 100;
-
-            el.style.left = `calc(${leftPerc}% - 20px)`;
-            el.style.top = `${topPerc}%`;
-            container.appendChild(el);
-            
-            setTimeout(() => el.remove(), 800);
+            el.style.left = `${domX - 20}px`;
+            el.style.top = `${y - 20}px`;
+            animContainer.appendChild(el);
+            setTimeout(() => el.remove(), 1000);
         }
 
-        function updateAndDrawGame() {
-            const w = canvas.width;
-            const h = canvas.height;
-            const radius = 60; // Raio de captura da cabeça
+        function updateAndDrawGame(dt, w, h, mapPt) {
+            if (!faceLandmarks) return;
+            
+            // Helper Coords
+            const nose = mapPt(faceLandmarks[1]);
+            const upperLip = mapPt(faceLandmarks[13]);
+            const lowerLip = mapPt(faceLandmarks[14]);
+            const lEye = mapPt(faceLandmarks[33]);
+            const rEye = mapPt(faceLandmarks[263]);
 
-            // Atualizar Posição do Jogador (Nariz)
-            if (faceLandmarks) {
-                const nose = faceLandmarks[1];
-                playerX = nose.x * w;
-                playerY = nose.y * h;
-            }
-
-            // Gerar Items Aleatórios
-            if (Math.random() < 0.03) { // 3% de chance por frame de criar item
-                const isBomb = Math.random() > 0.7; // 30% bombas
-                gameItems.push({
-                    x: Math.random() * (w - 100) + 50,
-                    y: -50,
-                    speed: (Math.random() * 4) + 4 + (gameScore * 0.05), // fica mais rápido com a pontuação
-                    type: isBomb ? 'bomb' : 'star',
-                    size: 40
-                });
-            }
-
-            // Desenhar Jogador (Cesto / Avatar) - Lembrete: Contexto está espelhado!
             ctx.save();
-            ctx.translate(playerX, playerY - 30);
-            ctx.scale(-1, 1); // Desfazer o espelho para o emoji ficar legível
+            ctx.textAlign = "center"; ctx.textBaseline = "middle";
+
+            const drawMirroredEmoji = (emoji, x, y, size) => {
+                ctx.save(); ctx.translate(x, y); if(facingMode==='user') ctx.scale(-1, 1);
+                ctx.font = `${size}px Arial`; ctx.fillText(emoji, 0, 0); ctx.restore();
+            };
+
+            // ---- LÓGICA DE CADA JOGO ----
             
-            // Círculo visual de hitbox
-            ctx.beginPath();
-            ctx.arc(0, 0, radius, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(99, 102, 241, 0.2)';
-            ctx.fill();
-            ctx.lineWidth = 2;
-            ctx.strokeStyle = 'rgba(99, 102, 241, 0.6)';
-            ctx.stroke();
-
-            ctx.font = "50px Arial";
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            ctx.fillText("🧺", 0, 0); // Cesto
-            ctx.restore();
-
-            // Atualizar e Desenhar Objetos que Caem
-            for (let i = gameItems.length - 1; i >= 0; i--) {
-                let item = gameItems[i];
-                item.y += item.speed;
-
-                // Desenhar
-                ctx.save();
-                ctx.translate(item.x, item.y);
-                ctx.scale(-1, 1);
-                ctx.font = `${item.size}px Arial`;
-                ctx.textAlign = "center";
-                ctx.textBaseline = "middle";
-                ctx.fillText(item.type === 'star' ? "⭐" : "💣", 0, 0);
-                ctx.restore();
-
-                // Deteção de Colisão Circular (AABB adaptado)
-                const dx = playerX - item.x;
-                const dy = (playerY - 30) - item.y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-
-                if (dist < radius + (item.size/2)) {
-                    // COLISÃO!
-                    if (item.type === 'star') {
-                        gameScore += 10;
-                        spawnFloatingText("+10", playerX, playerY, "text-emerald-400");
-                    } else {
-                        gameLives -= 1;
-                        spawnFloatingText("BOOM!", playerX, playerY, "text-rose-500");
-                        
-                        // Screen Shake Effect no DOM (Opcional, mas divertido)
-                        document.getElementById('canvasWrapper').classList.add('animate-ping', 'duration-75');
-                        setTimeout(() => document.getElementById('canvasWrapper').classList.remove('animate-ping', 'duration-75'), 150);
-                    }
-                    updateGameHud();
-                    gameItems.splice(i, 1);
-
-                    // Fim de Jogo?
-                    if (gameLives <= 0) {
-                        toggleGameState(); // Para o jogo
-                    }
-                    continue;
+            // 1. APANHA ESTRELAS (Mover X, apanhar estrelas, fugir bombas)
+            if (activeGame === 1) {
+                // Spawner
+                if (Math.random() < 0.04) {
+                    entities.push({x: Math.random() * w, y: -50, vy: 5 + (gameScore*0.1), type: Math.random() > 0.7 ? 'bomb' : 'star', size: 50});
                 }
+                
+                // Desenhar Jogador (Cesto no Nariz)
+                drawMirroredEmoji("🧺", nose.x, nose.y, 70);
 
-                // Remover se sair do ecrã
-                if (item.y > h + 100) {
-                    gameItems.splice(i, 1);
+                // Update Entidades
+                for (let i = entities.length - 1; i >= 0; i--) {
+                    let e = entities[i];
+                    e.y += e.vy;
+                    drawMirroredEmoji(e.type === 'star' ? "⭐" : "💣", e.x, e.y, e.size);
+                    
+                    // Colisão (Raio aprox 40)
+                    if (Math.hypot(nose.x - e.x, nose.y - e.y) < 60) {
+                        if (e.type === 'star') {
+                            gameScore += 10; spawnFloatingText("+10", nose.x, nose.y, "text-yellow-400");
+                        } else {
+                            gameLives--; spawnFloatingText("BOOM!", nose.x, nose.y, "text-red-500");
+                            if(gameLives <= 0) stopGame();
+                        }
+                        entities.splice(i, 1); updateGameUI(); continue;
+                    }
+                    if (e.y > h + 100) entities.splice(i, 1); // Delete offscreen
                 }
             }
-        }
 
-        // ---------------------------------------------------------
-        // UTILITÁRIOS: CAPTURA DE FOTO
-        // ---------------------------------------------------------
-        function takePhoto() {
-            if (!isCameraOn) return;
-            const link = document.getElementById('downloadLink');
-            
-            // O Canvas já tem tudo renderizado (Vídeo + Filtros + AR)
-            // Extrair como PNG
-            link.href = canvas.toDataURL('image/png');
-            link.download = `StudioPro_${new Date().getTime()}.png`;
-            link.click();
-            
-            // Efeito de Flash (Flash na div pai)
-            const cw = document.getElementById('canvasWrapper');
-            const flash = document.createElement('div');
-            flash.className = "absolute inset-0 bg-white z-50 opacity-100 transition-opacity duration-500 pointer-events-none";
-            cw.appendChild(flash);
-            setTimeout(() => { flash.style.opacity = '0'; }, 50);
-            setTimeout(() => { flash.remove(); }, 500);
-        }
+            // 2. COME A MAÇÃ (Abrir a boca para comer)
+            else if (activeGame === 2) {
+                if (Math.random() < 0.02) {
+                    entities.push({x: Math.random() * w, y: -50, vy: 4 + (gameScore*0.1), type: 'apple', size: 60});
+                }
+                
+                const mouthDist = Math.hypot(upperLip.x - lowerLip.x, upperLip.y - lowerLip.y);
+                const isOpen = mouthDist > 25; // Sensibilidade de abertura
 
-        // Iniciar inicialização dos módulos ao carregar
-        window.addEventListener('load', () => {
-            initFaceMesh();
-        });
+                drawMirroredEmoji(isOpen ? "😮" : "😐", nose.x, nose.y - 100, 80); // Icon feedback
+
+                for (let i = entities.length - 1; i >= 0; i--) {
+                    let e = entities[i];
+                    e.y += e.vy;
+                    drawMirroredEmoji("🍎", e.x, e.y, e.size);
+                    
+                    // Ponto médio da boca
+                    const mouthY = (upperLip.y + lowerLip.y)/2;
+                    if (isOpen && Math.hypot(nose.x - e.x, mouthY - e.y) < 70) {
+                        gameScore += 5; spawnFloatingText("NHAM!", nose.x, mouthY, "text-green-400");
+                        entities.splice(i, 1); updateGameUI(); continue;
+                    }
+                    if (e.y > h + 100) {
+                        gameLives--; updateGameUI(); spawnFloatingText("Falhaste!", e.x, h-50, "text-red-500");
+                        entities.splice(i, 1); if(gameLives<=0) stopGame();
+                    }
+                }
+            }
+
+            // 3. FLAPPY HEAD (Nariz Y controla)
+            else if (activeGame === 3) {
+                // Pássaro
+                drawMirroredEmoji("🦅", w/4, nose.y, 60);
+
+                // Pipes (Obstáculos da direita para esquerda)
+                if (Math.random() < 0.02 && (entities.length===0 || entities[entities.length-1].x < w-300)) {
+                    const gapY = Math.random() * (h - 300) + 150;
+                    entities.push({x: w + 100, gapY: gapY, w: 80, gapSize: 250, vx: -6});
+                }
+
+                for (let i = entities.length - 1; i >= 0; i--) {
+                    let e = entities[i];
+                    e.x += e.vx;
+                    
+                    ctx.fillStyle = "#22c55e"; // Verde Flappy
+                    ctx.fillRect(e.x, 0, e.w, e.gapY - e.gapSize/2); // Top Pipe
+                    ctx.fillRect(e.x, e.gapY + e.gapSize/2, e.w, h); // Bottom Pipe
+
+                    // Hitbox do pássaro (w/4, nose.y, r=30)
+                    const bX = w/4, bY = nose.y, bR = 30;
+                    // Check Colisão Simples (Caixa Bounding vs Circulo Aprox)
+                    if (bX+bR > e.x && bX-bR < e.x+e.w) {
+                        if (bY-bR < e.gapY - e.gapSize/2 || bY+bR > e.gapY + e.gapSize/2) {
+                            gameLives--; spawnFloatingText("BATEU!", bX, bY, "text-red-500");
+                            entities.splice(i, 1); updateGameUI(); 
+                            if(gameLives<=0) stopGame(); continue;
+                        }
+                    }
+
+                    // Score
+                    if (e.x === Math.floor(w/4)) { gameScore+=1; updateGameUI(); }
+
+                    if (e.x < -100) entities.splice(i, 1);
+                }
+            }
+
+            // 4. EYE LASER (Laser automático para alvos mais próximos)
+            else if (activeGame === 4) {
+                if (Math.random() < 0.05) {
+                    entities.push({x: Math.random() * w, y: Math.random() * (h/2), hp: 50, type: 'alien', size: 50});
+                }
+
+                // Encontrar alvo mais próximo
+                let target = null; let minDist = 9999; let tIdx = -1;
+                entities.forEach((e, i) => {
+                    const d = Math.hypot((lEye.x+rEye.x)/2 - e.x, (lEye.y+rEye.y)/2 - e.y);
+                    if (d < minDist) { minDist = d; target = e; tIdx = i; }
+                });
+
+                if (target) {
+                    // Draw Laser
+                    ctx.strokeStyle = "#06b6d4"; // Cyan
+                    ctx.lineWidth = 5;
+                    ctx.shadowColor = "#06b6d4"; ctx.shadowBlur = 10;
+                    
+                    ctx.beginPath(); ctx.moveTo(lEye.x, lEye.y); ctx.lineTo(target.x, target.y); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(rEye.x, rEye.y); ctx.lineTo(target.x, target.y); ctx.stroke();
+                    
+                    ctx.shadowBlur = 0; // Reset
+                    
+                    // Dano
+                    target.hp -= 2;
+                    if (target.hp <= 0) {
+                        gameScore += 10; spawnFloatingText("ZAP!", target.x, target.y, "text-cyan-400");
+                        entities.splice(tIdx, 1); updateGameUI();
+                    }
+                }
+
+                // Draw Aliens
+                entities.forEach(e => { drawMirroredEmoji("👾", e.x, e.y, e.size); });
+            }
+
+            // 5. MATRIX DODGE (Tijolos caem, desviar com a cabeça X)
+            else if (activeGame === 5) {
+                if (Math.random() < 0.05) {
+                    entities.push({x: Math.random() * w, y: -100, w: Math.random()*150+50, h: 40, vy: 7 + (gameScore*0.05)});
+                }
+
+                // Jogador (Neo)
+                drawMirroredEmoji("😎", nose.x, h - 100, 70);
+
+                ctx.fillStyle = "#a855f7"; // Purple Matrix Blocks
+                for (let i = entities.length - 1; i >= 0; i--) {
+                    let e = entities[i];
+                    e.y += e.vy;
+                    ctx.fillRect(e.x, e.y, e.w, e.h);
+                    
+                    // Colisão Neo Box approx
+                    const neoX = nose.x, neoY = h-100, neoS = 35; 
+                    if (neoX+neoS > e.x && neoX-neoS < e.x+e.w && neoY+neoS > e.y && neoY-neoS < e.y+e.h) {
+                        gameLives--; spawnFloatingText("CRASH", neoX, neoY, "text-red-500");
+                        entities.splice(i, 1); updateGameUI();
+                        if(gameLives<=0) stopGame(); continue;
+                    }
+
+                    if (e.y > h+100) { gameScore+=5; updateGameUI(); entities.splice(i, 1); }
+                }
+            }
+
+            // 6. HEAD PONG (Nariz controla a raquete)
+            else if (activeGame === 6) {
+                if (entities.length > 0) {
+                    let b = entities[0]; // A Bola
+                    
+                    // Draw Raquete Jogador (Esquerda)
+                    const pW = 20, pH = 150;
+                    const pX = 50, pY = nose.y - pH/2;
+                    ctx.fillStyle = "#ec4899"; ctx.fillRect(pX, pY, pW, pH);
+
+                    // Move Ball
+                    b.x += b.vx; b.y += b.vy;
+                    
+                    // Bounce Teto/Chão
+                    if (b.y < 0 || b.y > h) b.vy *= -1;
+                    
+                    // Bounce Parede Direita
+                    if (b.x > w) b.vx *= -1;
+                    
+                    // Bounce Raquete
+                    if (b.x < pX + pW && b.y > pY && b.y < pY + pH) {
+                        b.vx *= -1.1; // Acelera
+                        b.x = pX + pW;
+                        gameScore += 10; updateGameUI();
+                        spawnFloatingText("PONG!", b.x, b.y, "text-pink-400");
+                    }
+                    
+                    // Falha Parede Esquerda
+                    if (b.x < 0) {
+                        gameLives--; b.x = w/2; b.y = h/2; b.vx = 10; b.vy = 10; // Reset
+                        updateGameUI(); if(gameLives<=0) stopGame();
+                    }
+
+                    // Draw Bola
+                    drawMirroredEmoji("⚽", b.x, b.y, 40);
+                }
+            }
+
+            ctx.restore();
+        }
 
     </script>
 </body>
